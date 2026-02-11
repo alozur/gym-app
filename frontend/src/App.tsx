@@ -3,6 +3,10 @@ import { AuthProvider } from "@/context/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
+import Templates from "@/pages/Templates";
+import TemplateBuilder from "@/pages/TemplateBuilder";
+import Workout from "@/pages/Workout";
+import ExerciseLog from "@/pages/ExerciseLog";
 
 function PlaceholderPage({ name }: { name: string }) {
   return (
@@ -33,7 +37,23 @@ function App() {
             path="/templates"
             element={
               <ProtectedRoute>
-                <PlaceholderPage name="Templates" />
+                <Templates />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/templates/new"
+            element={
+              <ProtectedRoute>
+                <TemplateBuilder />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/templates/:id"
+            element={
+              <ProtectedRoute>
+                <TemplateBuilder />
               </ProtectedRoute>
             }
           />
@@ -41,7 +61,7 @@ function App() {
             path="/workout"
             element={
               <ProtectedRoute>
-                <PlaceholderPage name="Workout" />
+                <Workout />
               </ProtectedRoute>
             }
           />
@@ -50,6 +70,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <PlaceholderPage name="Exercises" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/exercises/:id/log"
+            element={
+              <ProtectedRoute>
+                <ExerciseLog />
               </ProtectedRoute>
             }
           />
