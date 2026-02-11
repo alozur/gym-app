@@ -40,3 +40,10 @@ htmlcov/
 # Build artifacts
 *.egg
 *.whl
+
+# SQLite databases
+*.db
+
+# Claude Code skills (auto-installed)
+.agents/
+.claude/skills/
