@@ -9,7 +9,7 @@ from app.auth import (
     verify_password,
     verify_token,
 )
-from app.dependencies import get_db
+from app.dependencies import get_current_user, get_db
 from app.models import User
 from app.schemas import (
     LoginRequest,
@@ -17,6 +17,7 @@ from app.schemas import (
     RefreshRequest,
     RegisterRequest,
     TokenResponse,
+    UserResponse,
 )
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -95,6 +96,12 @@ async def refresh(
         access_token=create_access_token(user_id),
         refresh_token=create_refresh_token(user_id),
     )
+
+
+@router.get("/me", response_model=UserResponse)
+async def me(current_user: User = Depends(get_current_user)) -> UserResponse:
+    """Return the currently authenticated user."""
+    return UserResponse.model_validate(current_user)
 
 
 @router.post("/logout", response_model=MessageResponse)

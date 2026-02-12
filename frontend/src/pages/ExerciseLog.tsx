@@ -146,7 +146,7 @@ export default function ExerciseLog() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background text-foreground">
+      <div className="min-h-screen bg-background text-foreground pb-20">
         <main className="mx-auto max-w-md px-4 py-8">
           <div className="flex items-center justify-center py-16">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -158,7 +158,7 @@ export default function ExerciseLog() {
 
   if (!exercise) {
     return (
-      <div className="min-h-screen bg-background text-foreground">
+      <div className="min-h-screen bg-background text-foreground pb-20">
         <main className="mx-auto max-w-md px-4 py-8">
           <p className="text-center text-muted-foreground">
             Exercise not found
@@ -172,7 +172,7 @@ export default function ExerciseLog() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground pb-20">
       <main className="mx-auto max-w-lg px-4 py-8">
         <div className="flex flex-col gap-4">
           <div>
