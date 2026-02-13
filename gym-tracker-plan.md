@@ -154,6 +154,7 @@ exercise_progress
 16. **Data export** - CSV/JSON export for external analysis
 17. **Unit toggle** - kg/lbs preference
 18. **Intensity technique prompts** - After last working set, prompt for the prescribed intensity technique (Failure, LLPs, Static Stretch, etc.)
+19. **Profile page** - User profile screen with display name, email, unit preference toggle (kg/lbs), sync status overview, and logout button
 
 ## Project Structure (New Repo)
 

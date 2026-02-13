@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { db, SYNC_STATUS } from "@/db/index.ts";
-import { api } from "@/api/client.ts";
+import { api, getAccessToken } from "@/api/client.ts";
 import type { SyncRequest, SyncResponse } from "@/types.ts";
 
 const SYNC_INTERVAL_MS = 30_000;
@@ -23,6 +23,7 @@ export function useSync(): UseSyncReturn {
   const [lastSyncError, setLastSyncError] = useState<string | null>(null);
 
   const backoffRef = useRef<number>(1000);
+  const isSyncingRef = useRef<boolean>(false);
   const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const connectivityIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
     null,
@@ -73,8 +74,12 @@ export function useSync(): UseSyncReturn {
   // Sync logic
   // ------------------------------------------------------------------
   const syncNow = useCallback(async () => {
-    if (isSyncing || !navigator.onLine) return;
+    if (isSyncingRef.current || !navigator.onLine) return;
 
+    // Don't attempt sync without a valid auth token
+    if (!getAccessToken()) return;
+
+    isSyncingRef.current = true;
     setIsSyncing(true);
     setLastSyncError(null);
 
@@ -90,7 +95,6 @@ export function useSync(): UseSyncReturn {
         .toArray();
 
       if (pendingSessions.length === 0 && pendingSets.length === 0) {
-        setIsSyncing(false);
         await refreshPendingCount();
         return;
       }
@@ -104,6 +108,7 @@ export function useSync(): UseSyncReturn {
           started_at: s.started_at,
           finished_at: s.finished_at,
           notes: s.notes,
+          program_id: s.program_id,
         })),
         sets: pendingSets.map((s) => ({
           id: s.id,
@@ -118,7 +123,7 @@ export function useSync(): UseSyncReturn {
         })),
       };
 
-      const result = await api.post<SyncResponse>("/sync", payload);
+      const result = await api.post<SyncResponse>("/sync/", payload);
 
       // Mark synced sessions
       if (result.synced_sessions.length > 0) {
@@ -147,9 +152,10 @@ export function useSync(): UseSyncReturn {
       // Exponential backoff
       backoffRef.current = Math.min(backoffRef.current * 2, MAX_BACKOFF_MS);
     } finally {
+      isSyncingRef.current = false;
       setIsSyncing(false);
     }
-  }, [isSyncing, refreshPendingCount]);
+  }, [refreshPendingCount]);
 
   // ------------------------------------------------------------------
   // Periodic sync & pending count refresh
@@ -176,7 +182,8 @@ export function useSync(): UseSyncReturn {
     if (isOnline) {
       void syncNow();
     }
-  }, [isOnline, syncNow]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline]);
 
   return { isOnline, pendingCount, isSyncing, lastSyncError, syncNow };
 }

@@ -71,8 +71,7 @@ export interface DbTemplateExercise {
   last_set_rpe_max: number;
   rest_period: string;
   intensity_technique: string | null;
-  min_warmup_sets: number;
-  max_warmup_sets: number;
+  warmup_sets: number;
   sync_status: SyncStatus;
 }
 
@@ -85,6 +84,7 @@ export interface DbWorkoutSession {
   started_at: string;
   finished_at: string | null;
   notes: string | null;
+  program_id: string | null;
   sync_status: SyncStatus;
 }
 
@@ -108,9 +108,29 @@ export interface DbExerciseProgress {
   exercise_id: string;
   year_week: string;
   max_weight: number;
-  warmup_weight_range: string | null;
-  warmup_sets_done: number | null;
   created_at: string;
+  sync_status: SyncStatus;
+}
+
+export interface DbProgram {
+  id: string;
+  user_id: string;
+  name: string;
+  deload_every_n_weeks: number;
+  is_active: boolean;
+  started_at: string | null;
+  current_routine_index: number;
+  weeks_completed: number;
+  last_workout_at: string | null;
+  created_at: string;
+  sync_status: SyncStatus;
+}
+
+export interface DbProgramRoutine {
+  id: string;
+  program_id: string;
+  template_id: string;
+  order: number;
   sync_status: SyncStatus;
 }
 
@@ -127,6 +147,8 @@ export class GymTrackerDB extends Dexie {
   workoutSessions!: Table<DbWorkoutSession, string>;
   workoutSets!: Table<DbWorkoutSet, string>;
   exerciseProgress!: Table<DbExerciseProgress, string>;
+  programs!: Table<DbProgram, string>;
+  programRoutines!: Table<DbProgramRoutine, string>;
 
   constructor() {
     super("GymTrackerDB");
@@ -144,5 +166,72 @@ export class GymTrackerDB extends Dexie {
       exerciseProgress:
         "id, user_id, exercise_id, year_week, [user_id+exercise_id+year_week], sync_status",
     });
+
+    this.version(2)
+      .stores({
+        // Index definitions unchanged — Dexie only needs store defs when
+        // indexes change. We keep them identical so no tables are recreated.
+        users: "id, email, sync_status",
+        exercises: "id, user_id, muscle_group, is_custom, sync_status",
+        exerciseSubstitutions:
+          "id, exercise_id, substitute_exercise_id, sync_status",
+        workoutTemplates: "id, user_id, sync_status",
+        templateExercises:
+          "id, template_id, exercise_id, week_type, sync_status",
+        workoutSessions:
+          "id, user_id, template_id, year_week, week_type, sync_status",
+        workoutSets: "id, session_id, exercise_id, set_type, sync_status",
+        exerciseProgress:
+          "id, user_id, exercise_id, year_week, [user_id+exercise_id+year_week], sync_status",
+      })
+      .upgrade((tx) => {
+        // Migrate templateExercises: replace min/max warmup with single warmup_sets
+        return tx
+          .table("templateExercises")
+          .toCollection()
+          .modify((te: Record<string, unknown>) => {
+            const max = (te["max_warmup_sets"] as number) ?? 2;
+            te["warmup_sets"] = max;
+            delete te["min_warmup_sets"];
+            delete te["max_warmup_sets"];
+          })
+          .then(() =>
+            tx
+              .table("exerciseProgress")
+              .toCollection()
+              .modify((p: Record<string, unknown>) => {
+                delete p["warmup_weight_range"];
+                delete p["warmup_sets_done"];
+              }),
+          );
+      });
+
+    this.version(3)
+      .stores({
+        users: "id, email, sync_status",
+        exercises: "id, user_id, muscle_group, is_custom, sync_status",
+        exerciseSubstitutions:
+          "id, exercise_id, substitute_exercise_id, sync_status",
+        workoutTemplates: "id, user_id, sync_status",
+        templateExercises:
+          "id, template_id, exercise_id, week_type, sync_status",
+        workoutSessions:
+          "id, user_id, template_id, year_week, week_type, program_id, sync_status",
+        workoutSets: "id, session_id, exercise_id, set_type, sync_status",
+        exerciseProgress:
+          "id, user_id, exercise_id, year_week, [user_id+exercise_id+year_week], sync_status",
+        programs: "id, user_id, is_active, sync_status",
+        programRoutines: "id, program_id, template_id, sync_status",
+      })
+      .upgrade((tx) => {
+        return tx
+          .table("workoutSessions")
+          .toCollection()
+          .modify((session: Record<string, unknown>) => {
+            if (!("program_id" in session)) {
+              session["program_id"] = null;
+            }
+          });
+      });
   }
 }

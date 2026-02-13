@@ -13,5 +13,7 @@ export type {
   DbWorkoutSession,
   DbWorkoutSet,
   DbExerciseProgress,
+  DbProgram,
+  DbProgramRoutine,
 } from "./schema.ts";
 export { GymTrackerDB } from "./schema.ts";

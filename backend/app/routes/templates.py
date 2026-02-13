@@ -62,8 +62,7 @@ async def create_template(
             last_set_rpe_max=te.last_set_rpe_max,
             rest_period=te.rest_period,
             intensity_technique=te.intensity_technique,
-            min_warmup_sets=te.min_warmup_sets,
-            max_warmup_sets=te.max_warmup_sets,
+            warmup_sets=te.warmup_sets,
         )
         db.add(template_exercise)
 
@@ -152,8 +151,7 @@ async def update_template(
             last_set_rpe_max=te.last_set_rpe_max,
             rest_period=te.rest_period,
             intensity_technique=te.intensity_technique,
-            min_warmup_sets=te.min_warmup_sets,
-            max_warmup_sets=te.max_warmup_sets,
+            warmup_sets=te.warmup_sets,
         )
         db.add(template_exercise)
 

@@ -27,8 +27,7 @@ def _make_template_exercise(exercise_id: str, week_type: str, order: int) -> dic
         "last_set_rpe_max": 9.0,
         "rest_period": "2-3 min",
         "intensity_technique": None,
-        "min_warmup_sets": 2,
-        "max_warmup_sets": 3,
+        "warmup_sets": 2,
     }
 
 

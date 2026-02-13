@@ -7,6 +7,8 @@ import {
   ApiError,
   getRefreshToken,
 } from "@/api/client";
+import { db } from "@/db/index";
+import { hydrateFromApi } from "@/db/hydrate";
 import type {
   TokenResponse,
   UserResponse,
@@ -50,6 +52,9 @@ export function useAuth(): UseAuthReturn {
             refreshToken: tokens.refresh_token,
           },
         });
+
+        // Hydrate Dexie from API so the new user has fresh data
+        void hydrateFromApi(user.id);
       } catch (err) {
         const message =
           err instanceof ApiError ? err.message : "Login failed";
@@ -89,6 +94,9 @@ export function useAuth(): UseAuthReturn {
             refreshToken: tokens.refresh_token,
           },
         });
+
+        // Hydrate Dexie from API so the new user has fresh data
+        void hydrateFromApi(user.id);
       } catch (err) {
         const message =
           err instanceof ApiError ? err.message : "Registration failed";
@@ -111,6 +119,8 @@ export function useAuth(): UseAuthReturn {
       // Logout should succeed even if the API call fails
     } finally {
       clearTokens();
+      // Clear all Dexie tables so the next user doesn't see stale data
+      await Promise.all(db.tables.map((table) => table.clear()));
       dispatch({ type: "LOGOUT" });
     }
   }, [dispatch]);

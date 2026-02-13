@@ -41,8 +41,7 @@ interface PrescriptionFields {
   last_set_rpe_max: number;
   rest_period: string;
   intensity_technique: string;
-  min_warmup_sets: number;
-  max_warmup_sets: number;
+  warmup_sets: number;
 }
 
 interface ExerciseEntry {
@@ -67,8 +66,7 @@ function defaultPrescription(): PrescriptionFields {
     last_set_rpe_max: 10,
     rest_period: "2-3 mins",
     intensity_technique: "",
-    min_warmup_sets: 1,
-    max_warmup_sets: 2,
+    warmup_sets: 2,
   };
 }
 
@@ -83,8 +81,7 @@ function defaultDeloadPrescription(): PrescriptionFields {
     last_set_rpe_max: 8,
     rest_period: "2-3 mins",
     intensity_technique: "",
-    min_warmup_sets: 1,
-    max_warmup_sets: 2,
+    warmup_sets: 2,
   };
 }
 
@@ -149,53 +146,58 @@ function PrescriptionColumn({ label, fields, onChange }: PrescriptionColumnProps
         </div>
       </div>
 
-      <div className="flex gap-2">
-        <div className="flex-1">
-          <Label className="text-xs">Early RPE Min</Label>
-          <Input
-            type="number"
-            min={1}
-            max={10}
-            step={0.5}
-            value={fields.early_set_rpe_min}
-            onChange={(e) => update("early_set_rpe_min", numVal(e))}
-          />
-        </div>
-        <div className="flex-1">
-          <Label className="text-xs">Early RPE Max</Label>
-          <Input
-            type="number"
-            min={1}
-            max={10}
-            step={0.5}
-            value={fields.early_set_rpe_max}
-            onChange={(e) => update("early_set_rpe_max", numVal(e))}
-          />
-        </div>
-      </div>
+      {/* RPE Prescription */}
+      <div className="rounded-md border border-border p-2 flex flex-col gap-2">
+        <p className="text-[11px] font-semibold text-muted-foreground">RPE Prescription</p>
 
-      <div className="flex gap-2">
-        <div className="flex-1">
-          <Label className="text-xs">Last RPE Min</Label>
-          <Input
-            type="number"
-            min={1}
-            max={10}
-            step={0.5}
-            value={fields.last_set_rpe_min}
-            onChange={(e) => update("last_set_rpe_min", numVal(e))}
-          />
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <Label className="text-xs">Early Sets Min</Label>
+            <Input
+              type="number"
+              min={1}
+              max={10}
+              step={0.5}
+              value={fields.early_set_rpe_min}
+              onChange={(e) => update("early_set_rpe_min", numVal(e))}
+            />
+          </div>
+          <div className="flex-1">
+            <Label className="text-xs">Early Sets Max</Label>
+            <Input
+              type="number"
+              min={1}
+              max={10}
+              step={0.5}
+              value={fields.early_set_rpe_max}
+              onChange={(e) => update("early_set_rpe_max", numVal(e))}
+            />
+          </div>
         </div>
-        <div className="flex-1">
-          <Label className="text-xs">Last RPE Max</Label>
-          <Input
-            type="number"
-            min={1}
-            max={10}
-            step={0.5}
-            value={fields.last_set_rpe_max}
-            onChange={(e) => update("last_set_rpe_max", numVal(e))}
-          />
+
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <Label className="text-xs">Last Set Min</Label>
+            <Input
+              type="number"
+              min={1}
+              max={10}
+              step={0.5}
+              value={fields.last_set_rpe_min}
+              onChange={(e) => update("last_set_rpe_min", numVal(e))}
+            />
+          </div>
+          <div className="flex-1">
+            <Label className="text-xs">Last Set Max</Label>
+            <Input
+              type="number"
+              min={1}
+              max={10}
+              step={0.5}
+              value={fields.last_set_rpe_max}
+              onChange={(e) => update("last_set_rpe_max", numVal(e))}
+            />
+          </div>
         </div>
       </div>
 
@@ -217,25 +219,15 @@ function PrescriptionColumn({ label, fields, onChange }: PrescriptionColumnProps
         />
       </div>
 
-      <div className="flex gap-2">
-        <div className="flex-1">
-          <Label className="text-xs">Min Warmup</Label>
-          <Input
-            type="number"
-            min={0}
-            value={fields.min_warmup_sets}
-            onChange={(e) => update("min_warmup_sets", numVal(e))}
-          />
-        </div>
-        <div className="flex-1">
-          <Label className="text-xs">Max Warmup</Label>
-          <Input
-            type="number"
-            min={0}
-            value={fields.max_warmup_sets}
-            onChange={(e) => update("max_warmup_sets", numVal(e))}
-          />
-        </div>
+      <div>
+        <Label className="text-xs">Warmup Sets</Label>
+        <Input
+          type="number"
+          min={0}
+          max={4}
+          value={fields.warmup_sets}
+          onChange={(e) => update("warmup_sets", numVal(e))}
+        />
       </div>
     </div>
   );
@@ -313,8 +305,7 @@ export default function TemplateBuilder() {
           last_set_rpe_max: te.last_set_rpe_max,
           rest_period: te.rest_period,
           intensity_technique: te.intensity_technique ?? "",
-          min_warmup_sets: te.min_warmup_sets,
-          max_warmup_sets: te.max_warmup_sets,
+          warmup_sets: te.warmup_sets,
         };
       }
 
@@ -437,8 +428,7 @@ export default function TemplateBuilder() {
           last_set_rpe_max: entry.normal.last_set_rpe_max,
           rest_period: entry.normal.rest_period,
           intensity_technique: entry.normal.intensity_technique || null,
-          min_warmup_sets: entry.normal.min_warmup_sets,
-          max_warmup_sets: entry.normal.max_warmup_sets,
+          warmup_sets: entry.normal.warmup_sets,
         };
 
         dexieTemplateExercises.push({
@@ -465,8 +455,7 @@ export default function TemplateBuilder() {
           last_set_rpe_max: entry.deload.last_set_rpe_max,
           rest_period: entry.deload.rest_period,
           intensity_technique: entry.deload.intensity_technique || null,
-          min_warmup_sets: entry.deload.min_warmup_sets,
-          max_warmup_sets: entry.deload.max_warmup_sets,
+          warmup_sets: entry.deload.warmup_sets,
         };
 
         dexieTemplateExercises.push({
@@ -532,7 +521,7 @@ export default function TemplateBuilder() {
         }
       }
 
-      navigate("/templates");
+      navigate("/programs");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to save template";
       setError(message);
@@ -550,14 +539,14 @@ export default function TemplateBuilder() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground pb-28">
       <main className="mx-auto max-w-lg px-4 py-6">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-bold">
             {isEditMode ? "Edit Template" : "New Template"}
           </h1>
-          <Button variant="outline" onClick={() => navigate("/templates")}>
+          <Button variant="outline" onClick={() => navigate("/programs")}>
             Cancel
           </Button>
         </div>

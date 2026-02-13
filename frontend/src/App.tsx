@@ -12,8 +12,9 @@ import InstallPrompt from "@/components/InstallPrompt";
 import OfflineBanner from "@/components/OfflineBanner";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
-import Templates from "@/pages/Templates";
 import TemplateBuilder from "@/pages/TemplateBuilder";
+import Programs from "@/pages/Programs";
+import ProgramBuilder from "@/pages/ProgramBuilder";
 import Workout from "@/pages/Workout";
 import ExerciseLog from "@/pages/ExerciseLog";
 import Dashboard from "@/pages/Dashboard";
@@ -36,15 +37,31 @@ function AppContent() {
           path="/"
           element={
             <ProtectedRoute>
-              <Navigate to="/templates" replace />
+              <Navigate to="/programs" replace />
             </ProtectedRoute>
           }
         />
         <Route
-          path="/templates"
+          path="/programs"
           element={
             <ProtectedRoute>
-              <Templates />
+              <Programs />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/programs/new"
+          element={
+            <ProtectedRoute>
+              <ProgramBuilder />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/programs/:id"
+          element={
+            <ProtectedRoute>
+              <ProgramBuilder />
             </ProtectedRoute>
           }
         />

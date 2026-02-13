@@ -23,7 +23,6 @@ interface WeekRow {
   yearWeek: string;
   workingSets: DbWorkoutSet[];
   maxWeight: number | null;
-  warmupRange: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -32,7 +31,7 @@ interface WeekRow {
 
 export default function ExerciseLog() {
   const { id } = useParams<{ id: string }>();
-  const { displayWeight, convertWeight, unit } = useUnitPreference();
+  const { displayWeight } = useUnitPreference();
   const [exercise, setExercise] = useState<DbExercise | null>(null);
   const [progress, setProgress] = useState<DbExerciseProgress[]>([]);
   const [sets, setSets] = useState<DbWorkoutSet[]>([]);
@@ -131,7 +130,6 @@ export default function ExerciseLog() {
         yearWeek: yw,
         workingSets,
         maxWeight: prog?.max_weight ?? null,
-        warmupRange: prog?.warmup_weight_range ?? null,
       });
     }
 
@@ -216,9 +214,6 @@ export default function ExerciseLog() {
                         <th className="py-2 px-2 text-center font-medium whitespace-nowrap">
                           Max
                         </th>
-                        <th className="py-2 pl-2 text-center font-medium whitespace-nowrap">
-                          Warmup
-                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -250,22 +245,6 @@ export default function ExerciseLog() {
                             {row.maxWeight != null ? (
                               <span className="font-mono text-xs font-semibold">
                                 {displayWeight(row.maxWeight)}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">--</span>
-                            )}
-                          </td>
-                          <td className="py-2 pl-2 text-center whitespace-nowrap">
-                            {row.warmupRange ? (
-                              <span className="font-mono text-xs">
-                                {row.warmupRange
-                                  .split("-")
-                                  .map((v) => {
-                                    const n = parseFloat(v.trim());
-                                    return isNaN(n) ? v : convertWeight(n, "kg");
-                                  })
-                                  .join("-")}{" "}
-                                {unit}
                               </span>
                             ) : (
                               <span className="text-muted-foreground">--</span>

@@ -29,21 +29,21 @@ function renderNav(initialPath: string) {
 
 describe("BottomNav", () => {
   it("renders all four tab labels", () => {
-    renderNav("/templates");
+    renderNav("/programs");
 
-    expect(screen.getByText("Templates")).toBeInTheDocument();
+    expect(screen.getByText("Programs")).toBeInTheDocument();
     expect(screen.getByText("Workout")).toBeInTheDocument();
     expect(screen.getByText("Dashboard")).toBeInTheDocument();
     expect(screen.getByText("Profile")).toBeInTheDocument();
   });
 
   it("highlights the active tab based on current route", () => {
-    renderNav("/templates");
+    renderNav("/programs");
 
-    const templatesButton = screen.getByText("Templates").closest("button");
+    const programsButton = screen.getByText("Programs").closest("button");
     const workoutButton = screen.getByText("Workout").closest("button");
 
-    expect(templatesButton?.className).toContain("text-primary");
+    expect(programsButton?.className).toContain("text-primary");
     expect(workoutButton?.className).toContain("text-muted-foreground");
   });
 
@@ -56,7 +56,7 @@ describe("BottomNav", () => {
 
   it("navigates when a tab is clicked", async () => {
     const user = userEvent.setup();
-    renderNav("/templates");
+    renderNav("/programs");
 
     await user.click(screen.getByText("Workout"));
     expect(mockNavigate).toHaveBeenCalledWith("/workout");
@@ -64,7 +64,7 @@ describe("BottomNav", () => {
 
   it("navigates to /profile when Profile tab is clicked", async () => {
     const user = userEvent.setup();
-    renderNav("/templates");
+    renderNav("/programs");
 
     await user.click(screen.getByText("Profile"));
     expect(mockNavigate).toHaveBeenCalledWith("/profile");

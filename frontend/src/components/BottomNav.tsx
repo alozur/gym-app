@@ -10,10 +10,10 @@ interface NavTab {
 
 const tabs: NavTab[] = [
   {
-    label: "Templates",
+    label: "Programs",
     icon: ClipboardList,
-    path: "/templates",
-    isActive: (p) => p.startsWith("/templates"),
+    path: "/programs",
+    isActive: (p) => p.startsWith("/programs"),
   },
   {
     label: "Workout",

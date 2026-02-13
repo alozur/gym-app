@@ -9,6 +9,8 @@ import type {
   DbWorkoutSession,
   DbWorkoutSet,
   DbExerciseProgress,
+  DbProgram,
+  DbProgramRoutine,
 } from "@/db/schema";
 
 let testDb: GymTrackerDB;
@@ -22,12 +24,14 @@ beforeEach(async () => {
 });
 
 describe("GymTrackerDB schema", () => {
-  it("creates all 8 tables", () => {
+  it("creates all 10 tables", () => {
     const tableNames = testDb.tables.map((t) => t.name).sort();
     expect(tableNames).toEqual([
       "exerciseProgress",
       "exerciseSubstitutions",
       "exercises",
+      "programRoutines",
+      "programs",
       "templateExercises",
       "users",
       "workoutSessions",
@@ -114,8 +118,7 @@ describe("GymTrackerDB schema", () => {
       last_set_rpe_max: 10,
       rest_period: "2-3 mins",
       intensity_technique: null,
-      min_warmup_sets: 1,
-      max_warmup_sets: 2,
+      warmup_sets: 2,
       sync_status: "synced",
     };
 
@@ -134,12 +137,67 @@ describe("GymTrackerDB schema", () => {
       started_at: "2024-01-01T10:00:00Z",
       finished_at: null,
       notes: null,
+      program_id: null,
       sync_status: "pending",
     };
 
     await testDb.workoutSessions.add(session);
     const retrieved = await testDb.workoutSessions.get("sess-1");
     expect(retrieved).toEqual(session);
+  });
+
+  it("can add and retrieve a workout session with program_id", async () => {
+    const session: DbWorkoutSession = {
+      id: "sess-2",
+      user_id: "user-1",
+      template_id: "tpl-1",
+      year_week: "2024-W01",
+      week_type: "normal",
+      started_at: "2024-01-01T10:00:00Z",
+      finished_at: null,
+      notes: null,
+      program_id: "prog-1",
+      sync_status: "pending",
+    };
+
+    await testDb.workoutSessions.add(session);
+    const retrieved = await testDb.workoutSessions.get("sess-2");
+    expect(retrieved).toEqual(session);
+    expect(retrieved?.program_id).toBe("prog-1");
+  });
+
+  it("can add and retrieve a program", async () => {
+    const program: DbProgram = {
+      id: "prog-1",
+      user_id: "user-1",
+      name: "Push Pull Legs",
+      deload_every_n_weeks: 6,
+      is_active: true,
+      started_at: "2024-01-01T00:00:00Z",
+      current_routine_index: 0,
+      weeks_completed: 0,
+      last_workout_at: null,
+      created_at: "2024-01-01T00:00:00Z",
+      sync_status: "pending",
+    };
+
+    await testDb.programs.add(program);
+    const retrieved = await testDb.programs.get("prog-1");
+    expect(retrieved).toEqual(program);
+  });
+
+  it("can add and retrieve a program routine", async () => {
+    const routine: DbProgramRoutine = {
+      id: "pr-1",
+      program_id: "prog-1",
+      template_id: "tpl-1",
+      order: 0,
+      sync_status: "pending",
+    };
+
+    await testDb.programRoutines.add(routine);
+    const retrieved = await testDb.programRoutines.get("pr-1");
+    expect(retrieved).toEqual(routine);
   });
 
   it("can add and retrieve a workout set", async () => {
@@ -169,8 +227,6 @@ describe("GymTrackerDB schema", () => {
       exercise_id: "ex-1",
       year_week: "2024-W01",
       max_weight: 100,
-      warmup_weight_range: "40-60",
-      warmup_sets_done: 2,
       created_at: "2024-01-01T10:30:00Z",
       sync_status: "synced",
     };

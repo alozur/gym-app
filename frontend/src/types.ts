@@ -97,8 +97,7 @@ export interface TemplateExerciseCreate {
   last_set_rpe_max: number;
   rest_period: string;
   intensity_technique: string | null;
-  min_warmup_sets: number;
-  max_warmup_sets: number;
+  warmup_sets: number;
 }
 
 export interface TemplateExerciseResponse {
@@ -115,8 +114,7 @@ export interface TemplateExerciseResponse {
   last_set_rpe_max: number;
   rest_period: string;
   intensity_technique: string | null;
-  min_warmup_sets: number;
-  max_warmup_sets: number;
+  warmup_sets: number;
 }
 
 export interface TemplateCreate {
@@ -135,6 +133,56 @@ export interface TemplateDetailResponse {
   name: string;
   created_at: string;
   template_exercises: TemplateExerciseResponse[];
+}
+
+// ---------------------------------------------------------------------------
+// Program
+// ---------------------------------------------------------------------------
+
+export interface ProgramRoutineCreate {
+  template_id: string;
+  order: number;
+}
+
+export interface ProgramRoutineResponse {
+  id: string;
+  template_id: string;
+  template_name: string | null;
+  order: number;
+}
+
+export interface ProgramCreate {
+  name: string;
+  deload_every_n_weeks: number;
+  routines: ProgramRoutineCreate[];
+}
+
+export interface ProgramResponse {
+  id: string;
+  name: string;
+  deload_every_n_weeks: number;
+  is_active: boolean;
+  started_at: string | null;
+  current_routine_index: number;
+  weeks_completed: number;
+  last_workout_at: string | null;
+  created_at: string;
+  routine_count: number;
+}
+
+export interface ProgramDetailResponse extends ProgramResponse {
+  routines: ProgramRoutineResponse[];
+}
+
+export interface TodayResponse {
+  program: ProgramResponse;
+  current_routine: ProgramRoutineResponse | null;
+  template_name: string | null;
+  template_exercises: TemplateExerciseResponse[];
+  week_type: string;
+  week_number: number;
+  is_deload: boolean;
+  next_routine_name: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -174,6 +222,7 @@ export interface SessionCreate {
   template_id: string | null;
   week_type: string;
   year_week: string | null;
+  program_id: string | null;
 }
 
 export interface SessionUpdate {
@@ -189,6 +238,7 @@ export interface SessionResponse {
   started_at: string;
   finished_at: string | null;
   notes: string | null;
+  program_id: string | null;
   synced: boolean;
 }
 
@@ -200,6 +250,7 @@ export interface SessionDetailResponse {
   started_at: string;
   finished_at: string | null;
   notes: string | null;
+  program_id: string | null;
   synced: boolean;
   sets: SetResponse[];
 }
@@ -211,8 +262,6 @@ export interface SessionDetailResponse {
 export interface ProgressResponse {
   year_week: string;
   max_weight: number;
-  warmup_weight_range: string | null;
-  warmup_sets_done: number | null;
 }
 
 export interface VolumeResponse {
@@ -240,6 +289,7 @@ export interface SyncSessionData {
   started_at: string;
   finished_at: string | null;
   notes: string | null;
+  program_id: string | null;
 }
 
 export interface SyncSetData {

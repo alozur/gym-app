@@ -37,6 +37,7 @@ class User(Base):
     templates: Mapped[list["WorkoutTemplate"]] = relationship(back_populates="user")
     sessions: Mapped[list["WorkoutSession"]] = relationship(back_populates="user")
     progress: Mapped[list["ExerciseProgress"]] = relationship(back_populates="user")
+    programs: Mapped[list["Program"]] = relationship(back_populates="user")
 
 
 class Exercise(Base):
@@ -113,6 +114,9 @@ class WorkoutTemplate(Base):
         back_populates="template", cascade="all, delete-orphan"
     )
     sessions: Mapped[list["WorkoutSession"]] = relationship(back_populates="template")
+    program_routines: Mapped[list["ProgramRoutine"]] = relationship(
+        back_populates="template"
+    )
 
 
 class TemplateExercise(Base):
@@ -140,8 +144,7 @@ class TemplateExercise(Base):
     intensity_technique: Mapped[str | None] = mapped_column(
         String(200), nullable=True
     )
-    min_warmup_sets: Mapped[int] = mapped_column(Integer, nullable=False)
-    max_warmup_sets: Mapped[int] = mapped_column(Integer, nullable=False)
+    warmup_sets: Mapped[int] = mapped_column(Integer, nullable=False, default=2)
 
     template: Mapped[WorkoutTemplate] = relationship(
         back_populates="template_exercises"
@@ -161,6 +164,9 @@ class WorkoutSession(Base):
     template_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("workout_templates.id"), nullable=True
     )
+    program_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("programs.id"), nullable=True
+    )
     year_week: Mapped[str | None] = mapped_column(String(10), nullable=True)
     week_type: Mapped[str] = mapped_column(String(20), nullable=False)
     started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
@@ -170,6 +176,7 @@ class WorkoutSession(Base):
 
     user: Mapped[User] = relationship(back_populates="sessions")
     template: Mapped[WorkoutTemplate | None] = relationship(back_populates="sessions")
+    program: Mapped["Program | None"] = relationship(back_populates="sessions")
     sets: Mapped[list["WorkoutSet"]] = relationship(
         back_populates="session", cascade="all, delete-orphan"
     )
@@ -218,13 +225,64 @@ class ExerciseProgress(Base):
     )
     year_week: Mapped[str] = mapped_column(String(10), nullable=False)
     max_weight: Mapped[Decimal] = mapped_column(Numeric(7, 2), nullable=False)
-    warmup_weight_range: Mapped[str | None] = mapped_column(
-        String(50), nullable=True
-    )
-    warmup_sets_done: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow
     )
 
     user: Mapped[User] = relationship(back_populates="progress")
     exercise: Mapped[Exercise] = relationship(back_populates="progress")
+
+
+class Program(Base):
+    __tablename__ = "programs"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    deload_every_n_weeks: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=6
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    current_routine_index: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0
+    )
+    weeks_completed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_workout_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=datetime.utcnow
+    )
+
+    user: Mapped["User"] = relationship(back_populates="programs")
+    routines: Mapped[list["ProgramRoutine"]] = relationship(
+        back_populates="program",
+        cascade="all, delete-orphan",
+        order_by="ProgramRoutine.order",
+    )
+    sessions: Mapped[list["WorkoutSession"]] = relationship(back_populates="program")
+
+
+class ProgramRoutine(Base):
+    __tablename__ = "program_routines"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    program_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("programs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    template_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("workout_templates.id"), nullable=False
+    )
+    order: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    program: Mapped["Program"] = relationship(back_populates="routines")
+    template: Mapped["WorkoutTemplate"] = relationship(
+        back_populates="program_routines"
+    )

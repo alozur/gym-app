@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import Base, async_session, engine, settings
 from app.routes.auth import router as auth_router
 from app.routes.exercises import router as exercises_router
+from app.routes.programs import router as programs_router
 from app.routes.progress import router as progress_router
 from app.routes.sessions import router as sessions_router
 from app.routes.stats import router as stats_router
@@ -37,6 +38,7 @@ app.include_router(auth_router)
 app.include_router(exercises_router)
 app.include_router(templates_router)
 app.include_router(sessions_router)
+app.include_router(programs_router)
 app.include_router(progress_router)
 app.include_router(stats_router)
 app.include_router(sync_router)

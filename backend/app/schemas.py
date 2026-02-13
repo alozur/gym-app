@@ -125,19 +125,12 @@ class TemplateExerciseCreate(BaseModel):
     last_set_rpe_max: Decimal = Field(..., ge=1, le=10)
     rest_period: str = Field(..., min_length=1, max_length=50)
     intensity_technique: str | None = None
-    min_warmup_sets: int = Field(..., ge=0)
-    max_warmup_sets: int = Field(..., ge=0)
+    warmup_sets: int = Field(..., ge=0, le=4)
 
     @model_validator(mode="after")
     def validate_rep_range(self) -> "TemplateExerciseCreate":
         if self.min_reps > self.max_reps:
             raise ValueError("min_reps must be <= max_reps")
-        return self
-
-    @model_validator(mode="after")
-    def validate_warmup_range(self) -> "TemplateExerciseCreate":
-        if self.min_warmup_sets > self.max_warmup_sets:
-            raise ValueError("min_warmup_sets must be <= max_warmup_sets")
         return self
 
 
@@ -155,8 +148,7 @@ class TemplateExerciseResponse(BaseModel):
     last_set_rpe_max: Decimal
     rest_period: str
     intensity_technique: str | None = None
-    min_warmup_sets: int
-    max_warmup_sets: int
+    warmup_sets: int
 
     model_config = {"from_attributes": True}
 
@@ -221,6 +213,7 @@ class SetUpdate(BaseModel):
 
 class SessionCreate(BaseModel):
     template_id: str | None = None
+    program_id: str | None = None
     week_type: str = Field(..., min_length=1, max_length=20)
     year_week: str | None = None
 
@@ -233,6 +226,7 @@ class SessionUpdate(BaseModel):
 class SessionResponse(BaseModel):
     id: str
     template_id: str | None = None
+    program_id: str | None = None
     year_week: str | None = None
     week_type: str
     started_at: datetime
@@ -246,6 +240,7 @@ class SessionResponse(BaseModel):
 class SessionDetailResponse(BaseModel):
     id: str
     template_id: str | None = None
+    program_id: str | None = None
     year_week: str | None = None
     week_type: str
     started_at: datetime
@@ -265,8 +260,6 @@ class SessionDetailResponse(BaseModel):
 class ProgressResponse(BaseModel):
     year_week: str
     max_weight: Decimal
-    warmup_weight_range: str | None = None
-    warmup_sets_done: int | None = None
 
     model_config = {"from_attributes": True}
 
@@ -292,6 +285,7 @@ class RecordResponse(BaseModel):
 class SyncSessionData(BaseModel):
     id: str
     template_id: str | None = None
+    program_id: str | None = None
     year_week: str | None = None
     week_type: str
     started_at: datetime
@@ -320,3 +314,91 @@ class SyncResponse(BaseModel):
     synced_sessions: list[str] = []
     synced_sets: list[str] = []
     errors: list[str] = []
+
+
+# ---------------------------------------------------------------------------
+# Program schemas
+# ---------------------------------------------------------------------------
+
+
+class ProgramRoutineCreate(BaseModel):
+    template_id: str
+    order: int = Field(..., ge=0)
+
+
+class ProgramRoutineResponse(BaseModel):
+    id: str
+    template_id: str
+    template_name: str | None = None
+    order: int
+
+    model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def extract_template_name(cls, data: object) -> object:
+        if hasattr(data, "template") and data.template:
+            data.template_name = data.template.name
+        return data
+
+
+class ProgramCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    deload_every_n_weeks: int = Field(default=6, ge=1, le=52)
+    routines: list[ProgramRoutineCreate] = []
+
+
+class ProgramResponse(BaseModel):
+    id: str
+    name: str
+    deload_every_n_weeks: int
+    is_active: bool
+    started_at: datetime | None = None
+    current_routine_index: int
+    weeks_completed: int
+    last_workout_at: datetime | None = None
+    created_at: datetime
+    routine_count: int = 0
+
+    model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def compute_routine_count(cls, data: object) -> object:
+        if hasattr(data, "routines"):
+            data.routine_count = len(data.routines)
+        return data
+
+
+class ProgramDetailResponse(BaseModel):
+    id: str
+    name: str
+    deload_every_n_weeks: int
+    is_active: bool
+    started_at: datetime | None = None
+    current_routine_index: int
+    weeks_completed: int
+    last_workout_at: datetime | None = None
+    created_at: datetime
+    routine_count: int = 0
+    routines: list[ProgramRoutineResponse] = []
+
+    model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def compute_routine_count(cls, data: object) -> object:
+        if hasattr(data, "routines"):
+            data.routine_count = len(data.routines)
+        return data
+
+
+class TodayResponse(BaseModel):
+    program: ProgramResponse
+    current_routine: ProgramRoutineResponse | None = None
+    template_name: str | None = None
+    template_exercises: list[TemplateExerciseResponse] = []
+    week_type: str
+    week_number: int
+    is_deload: bool
+    next_routine_name: str | None = None

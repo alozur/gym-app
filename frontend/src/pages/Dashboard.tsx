@@ -38,7 +38,7 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background text-foreground pb-20">
+    <div className="min-h-screen bg-background text-foreground pb-28">
       <main className="mx-auto max-w-md px-4 py-6">
         <h1 className="mb-4 text-2xl font-bold">Dashboard</h1>
 

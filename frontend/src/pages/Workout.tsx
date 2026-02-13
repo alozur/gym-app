@@ -10,8 +10,12 @@ import {
   type DbWorkoutSession,
   type DbWorkoutSet,
   type DbExerciseSubstitution,
+  type DbProgram,
+  type DbProgramRoutine,
 } from "@/db/index";
+import { calculateWarmupSets } from "@/utils/warmup";
 import { useAuthContext } from "@/context/AuthContext";
+import { api } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -34,20 +38,12 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { ExercisePicker } from "@/components/ExercisePicker";
-import { RestTimer } from "@/components/RestTimer";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function parseRestSeconds(restPeriod: string | undefined): number {
-  if (!restPeriod) return 90;
-  const match = restPeriod.match(/(\d+)/);
-  return match ? parseInt(match[1], 10) * 60 : 90;
-}
 
 function getYearWeek(date: Date): string {
   const jan1 = new Date(date.getFullYear(), 0, 1);
@@ -69,7 +65,8 @@ interface ExerciseEntry {
   exerciseName: string;
   equipment: string | null;
   prescription: DbTemplateExercise | null;
-  warmupSets: SetEntry[];
+  lastMaxWeight: number | null;
+  warmupCount: number;
   workingSets: SetEntry[];
   substitutions: DbExerciseSubstitution[];
 }
@@ -191,20 +188,15 @@ function WorkoutSetup({ onStart }: SetupProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Set Row component
+// Set Row component (input-only, no per-set save button)
 // ---------------------------------------------------------------------------
 
 interface SetRowProps {
   entry: SetEntry;
-  setType: "warmup" | "working";
-  showRpe: boolean;
-  targetRpe?: string;
-  autoFocusWeight?: boolean;
   onChange: (field: "weight" | "reps" | "rpe", value: string) => void;
-  onSave: () => void;
 }
 
-function SetRow({ entry, setType, showRpe, targetRpe, autoFocusWeight, onChange, onSave }: SetRowProps) {
+function SetRow({ entry, onChange }: SetRowProps) {
   return (
     <div className="flex items-center gap-2">
       <span className="w-6 text-center text-xs text-muted-foreground shrink-0">
@@ -217,49 +209,15 @@ function SetRow({ entry, setType, showRpe, targetRpe, autoFocusWeight, onChange,
         value={entry.weight}
         onChange={(e) => onChange("weight", e.target.value)}
         className="min-h-[44px] flex-1"
-        autoFocus={autoFocusWeight}
       />
-      {setType === "working" && (
-        <>
-          <Input
-            type="number"
-            inputMode="numeric"
-            placeholder="reps"
-            value={entry.reps}
-            onChange={(e) => onChange("reps", e.target.value)}
-            className="min-h-[44px] flex-1"
-          />
-          {showRpe && (
-            <div className="flex flex-col items-center gap-0.5">
-              <Input
-                type="number"
-                inputMode="decimal"
-                placeholder="RPE"
-                min={1}
-                max={10}
-                step={0.5}
-                value={entry.rpe}
-                onChange={(e) => onChange("rpe", e.target.value)}
-                className="min-h-[44px] w-16"
-              />
-              {targetRpe && (
-                <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                  {targetRpe}
-                </span>
-              )}
-            </div>
-          )}
-        </>
-      )}
-      <Button
-        variant={entry.saved ? "secondary" : "default"}
-        size="sm"
-        className="min-h-[44px] min-w-[44px] shrink-0"
-        onClick={onSave}
-        type="button"
-      >
-        {entry.saved ? "OK" : "Log"}
-      </Button>
+      <Input
+        type="number"
+        inputMode="numeric"
+        placeholder="reps"
+        value={entry.reps}
+        onChange={(e) => onChange("reps", e.target.value)}
+        className="min-h-[44px] flex-1"
+      />
     </div>
   );
 }
@@ -271,44 +229,43 @@ function SetRow({ entry, setType, showRpe, targetRpe, autoFocusWeight, onChange,
 interface ExerciseCardProps {
   entry: ExerciseEntry;
   sessionId: string;
-  quickMode?: boolean;
   onUpdateSets: (
     exerciseId: string,
-    setType: "warmup" | "working",
+    setType: "working",
     sets: SetEntry[]
   ) => void;
-  onAddWarmupSet: (exerciseId: string) => void;
   onSubstitute: (
     exerciseId: string,
     newExerciseId: string,
     newExerciseName: string,
     newEquipment: string | null
   ) => void;
-  onSetSaved?: (restSeconds: number) => void;
 }
 
 function ExerciseCard({
   entry,
   sessionId,
-  quickMode,
   onUpdateSets,
-  onAddWarmupSet,
   onSubstitute,
-  onSetSaved,
 }: ExerciseCardProps) {
   const [showSubstitutions, setShowSubstitutions] = useState(false);
   const [substitutes, setSubstitutes] = useState<DbExercise[]>([]);
-  const [showIntensityPrompt, setShowIntensityPrompt] = useState(false);
-  const [lastSavedWorkingIndex, setLastSavedWorkingIndex] = useState<number | null>(null);
+  const [isLogged, setIsLogged] = useState(false);
   const rx = entry.prescription;
 
   const prescriptionText = rx
     ? `${rx.working_sets}x${rx.min_reps}-${rx.max_reps} @ RPE ${rx.early_set_rpe_min}-${rx.last_set_rpe_max}, Rest: ${rx.rest_period}`
     : null;
 
-  const warmupRange = rx
-    ? `${rx.min_warmup_sets}-${rx.max_warmup_sets} sets`
+  const warmupGuidance = entry.warmupCount > 0
+    ? calculateWarmupSets(entry.warmupCount, entry.lastMaxWeight)
     : null;
+
+  // Check if already logged on mount (resuming a session)
+  const allSaved = entry.workingSets.length > 0 && entry.workingSets.every((s) => s.saved);
+  useEffect(() => {
+    if (allSaved) setIsLogged(true);
+  }, [allSaved]);
 
   useEffect(() => {
     if (!showSubstitutions) return;
@@ -331,84 +288,70 @@ function ExerciseCard({
   }, [showSubstitutions, entry.exerciseId]);
 
   function handleSetChange(
-    setType: "warmup" | "working",
     index: number,
     field: "weight" | "reps" | "rpe",
     value: string
   ) {
-    const sets = setType === "warmup" ? [...entry.warmupSets] : [...entry.workingSets];
+    const sets = [...entry.workingSets];
     sets[index] = { ...sets[index], [field]: value };
-    onUpdateSets(entry.exerciseId, setType, sets);
+    onUpdateSets(entry.exerciseId, "working", sets);
   }
 
-  async function handleSaveSet(setType: "warmup" | "working", index: number) {
-    const sets = setType === "warmup" ? entry.warmupSets : entry.workingSets;
-    const s = sets[index];
-    const weight = parseFloat(s.weight);
-    const reps = setType === "working" ? parseInt(s.reps, 10) : 0;
-    const rpe = s.rpe ? parseFloat(s.rpe) : null;
+  async function handleLogExercise() {
+    const updated = [...entry.workingSets];
+    let savedAny = false;
 
-    if (isNaN(weight) || weight <= 0) return;
-    if (setType === "working" && (isNaN(reps) || reps <= 0)) return;
+    for (let i = 0; i < updated.length; i++) {
+      const s = updated[i];
+      if (s.saved) continue;
 
-    const record: DbWorkoutSet = {
-      id: s.id,
-      session_id: sessionId,
-      exercise_id: entry.exerciseId,
-      set_type: setType,
-      set_number: s.setNumber,
-      reps: setType === "warmup" ? 0 : reps,
-      weight,
-      rpe,
-      notes: null,
-      created_at: new Date().toISOString(),
-      sync_status: SYNC_STATUS.pending,
-    };
+      const weight = parseFloat(s.weight);
+      const reps = parseInt(s.reps, 10);
+      const rpe = s.rpe ? parseFloat(s.rpe) : null;
 
-    await db.workoutSets.put(record);
+      if (isNaN(weight) || weight <= 0) continue;
+      if (isNaN(reps) || reps <= 0) continue;
 
-    const updated = [...sets];
-    updated[index] = { ...updated[index], saved: true };
-    onUpdateSets(entry.exerciseId, setType, updated);
+      const record: DbWorkoutSet = {
+        id: s.id,
+        session_id: sessionId,
+        exercise_id: entry.exerciseId,
+        set_type: "working",
+        set_number: s.setNumber,
+        reps,
+        weight,
+        rpe,
+        notes: null,
+        created_at: new Date().toISOString(),
+        sync_status: SYNC_STATUS.pending,
+      };
 
-    if (setType === "working") {
-      setLastSavedWorkingIndex(index);
-
-      const isLastWorkingSet = index === entry.workingSets.length - 1;
-
-      if (isLastWorkingSet && rx?.intensity_technique) {
-        setShowIntensityPrompt(true);
-      }
-
-      // Trigger rest timer for non-last working sets
-      if (!isLastWorkingSet && onSetSaved) {
-        const restSeconds = parseRestSeconds(rx?.rest_period);
-        onSetSaved(restSeconds);
-      }
+      await db.workoutSets.put(record);
+      updated[i] = { ...updated[i], saved: true };
+      savedAny = true;
     }
-  }
 
-  function getTargetRpe(setIndex: number): string | undefined {
-    if (!rx) return undefined;
-    const isLastSet = setIndex === entry.workingSets.length - 1;
-    if (isLastSet) {
-      return `${rx.last_set_rpe_min}-${rx.last_set_rpe_max}`;
+    if (savedAny) {
+      onUpdateSets(entry.exerciseId, "working", updated);
+      setIsLogged(true);
     }
-    return `${rx.early_set_rpe_min}-${rx.early_set_rpe_max}`;
   }
 
   return (
     <>
-      <Card>
+      <Card className={isLogged ? "border-green-500/40 bg-green-500/5" : undefined}>
         <CardHeader>
           <div className="flex items-start justify-between gap-2">
             <div>
-              <CardTitle className="text-base">{entry.exerciseName}</CardTitle>
-              {!quickMode && entry.equipment && (
+              <CardTitle className="text-base">
+                {isLogged && <span className="text-green-600 mr-1">&#10003;</span>}
+                {entry.exerciseName}
+              </CardTitle>
+              {entry.equipment && (
                 <p className="text-xs text-muted-foreground">{entry.equipment}</p>
               )}
             </div>
-            {entry.substitutions.length > 0 && (
+            {entry.substitutions.length > 0 && !isLogged && (
               <Button
                 variant="outline"
                 size="sm"
@@ -420,7 +363,7 @@ function ExerciseCard({
               </Button>
             )}
           </div>
-          {!quickMode && prescriptionText && (
+          {prescriptionText && (
             <div className="flex flex-wrap gap-1.5 mt-1">
               <span className="inline-block rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
                 {prescriptionText}
@@ -434,34 +377,32 @@ function ExerciseCard({
           )}
         </CardHeader>
 
-        <CardContent className={`flex flex-col ${quickMode ? "gap-2" : "gap-4"}`}>
-          {/* Warmup Sets - hidden in quick mode */}
-          {!quickMode && (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">
-                  Warmup{warmupRange && <span className="text-muted-foreground font-normal"> ({warmupRange})</span>}
+        <CardContent className="flex flex-col gap-4">
+          {/* Warmup Guidance */}
+          {entry.warmupCount > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <p className="text-sm font-medium">
+                Warmup <span className="text-muted-foreground font-normal">({entry.warmupCount} sets)</span>
+              </p>
+              {warmupGuidance ? (
+                <div className="flex flex-col gap-1">
+                  {warmupGuidance.map((ws) => (
+                    <div
+                      key={ws.setNumber}
+                      className="flex items-center gap-3 rounded-md bg-muted/50 px-3 py-1.5 text-xs"
+                    >
+                      <span className="w-4 text-center text-muted-foreground">{ws.setNumber}</span>
+                      <span className="font-mono font-medium">{ws.weight} kg</span>
+                      <span className="text-muted-foreground">&times; {ws.reps} reps</span>
+                      <span className="ml-auto text-muted-foreground">{ws.percentage}%</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">
+                  No previous data — warm up as needed
                 </p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onAddWarmupSet(entry.exerciseId)}
-                  type="button"
-                  className="min-h-[36px]"
-                >
-                  + Add
-                </Button>
-              </div>
-              {entry.warmupSets.map((s, i) => (
-                <SetRow
-                  key={s.id}
-                  entry={s}
-                  setType="warmup"
-                  showRpe={false}
-                  onChange={(field, value) => handleSetChange("warmup", i, field, value)}
-                  onSave={() => void handleSaveSet("warmup", i)}
-                />
-              ))}
+              )}
             </div>
           )}
 
@@ -479,20 +420,20 @@ function ExerciseCard({
               <SetRow
                 key={s.id}
                 entry={s}
-                setType="working"
-                showRpe={!quickMode}
-                targetRpe={getTargetRpe(i)}
-                autoFocusWeight={
-                  quickMode &&
-                  lastSavedWorkingIndex !== null &&
-                  i === lastSavedWorkingIndex + 1 &&
-                  !s.saved
-                }
-                onChange={(field, value) => handleSetChange("working", i, field, value)}
-                onSave={() => void handleSaveSet("working", i)}
+                onChange={(field, value) => handleSetChange(i, field, value)}
               />
             ))}
           </div>
+
+          {/* Log Exercise button */}
+          <Button
+            variant={isLogged ? "secondary" : "default"}
+            className="w-full min-h-[44px]"
+            onClick={() => void handleLogExercise()}
+            type="button"
+          >
+            {isLogged ? "Logged" : "Log Exercise"}
+          </Button>
         </CardContent>
       </Card>
 
@@ -541,38 +482,6 @@ function ExerciseCard({
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Intensity technique prompt */}
-      <Dialog
-        open={showIntensityPrompt}
-        onOpenChange={(v) => !v && setShowIntensityPrompt(false)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Intensity Technique</DialogTitle>
-            <DialogDescription>
-              Perform: {rx?.intensity_technique}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowIntensityPrompt(false)}
-              className="min-h-[44px]"
-              type="button"
-            >
-              Skip
-            </Button>
-            <Button
-              onClick={() => setShowIntensityPrompt(false)}
-              className="min-h-[44px]"
-              type="button"
-            >
-              Done
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
@@ -584,9 +493,10 @@ function ExerciseCard({
 interface ActiveWorkoutProps {
   session: DbWorkoutSession;
   templateName: string | null;
+  onFinished?: () => void;
 }
 
-function ActiveWorkout({ session, templateName }: ActiveWorkoutProps) {
+function ActiveWorkout({ session, templateName, onFinished }: ActiveWorkoutProps) {
   const navigate = useNavigate();
   const { state: authState } = useAuthContext();
   const userId = authState.user?.id ?? "";
@@ -595,10 +505,6 @@ function ActiveWorkout({ session, templateName }: ActiveWorkoutProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
-  const [restTimerSeconds, setRestTimerSeconds] = useState<number | null>(null);
-  const [quickMode, setQuickMode] = useState(
-    () => localStorage.getItem("quickLogMode") === "true"
-  );
 
   const existingExerciseIds = useMemo(
     () => exercises.map((e) => e.exerciseId),
@@ -639,6 +545,19 @@ function ActiveWorkout({ session, templateName }: ActiveWorkoutProps) {
         subsMap.set(s.exercise_id, arr);
       }
 
+      // Look up last max weights for warmup guidance
+      const allProgress = await db.exerciseProgress
+        .where("exercise_id")
+        .anyOf(exerciseIds)
+        .toArray();
+      const maxWeightMap = new Map<string, number>();
+      for (const p of allProgress) {
+        const current = maxWeightMap.get(p.exercise_id) ?? 0;
+        if (p.max_weight > current) {
+          maxWeightMap.set(p.exercise_id, p.max_weight);
+        }
+      }
+
       const entries: ExerciseEntry[] = templateExercises.map((te) => {
         const ex = exerciseMap.get(te.exercise_id);
         const subs = subsMap.get(te.exercise_id) ?? [];
@@ -662,7 +581,8 @@ function ActiveWorkout({ session, templateName }: ActiveWorkoutProps) {
           exerciseName: ex?.name ?? "Unknown Exercise",
           equipment: ex?.equipment ?? null,
           prescription: te,
-          warmupSets: [],
+          lastMaxWeight: maxWeightMap.get(te.exercise_id) ?? null,
+          warmupCount: te.warmup_sets,
           workingSets,
           substitutions: subs,
         };
@@ -681,36 +601,16 @@ function ActiveWorkout({ session, templateName }: ActiveWorkoutProps) {
   }, [session.template_id, session.week_type]);
 
   const handleUpdateSets = useCallback(
-    (exerciseId: string, setType: "warmup" | "working", sets: SetEntry[]) => {
+    (exerciseId: string, _setType: "working", sets: SetEntry[]) => {
       setExercises((prev) =>
         prev.map((e) => {
           if (e.exerciseId !== exerciseId) return e;
-          return setType === "warmup"
-            ? { ...e, warmupSets: sets }
-            : { ...e, workingSets: sets };
+          return { ...e, workingSets: sets };
         })
       );
     },
     []
   );
-
-  const handleAddWarmupSet = useCallback((exerciseId: string) => {
-    setExercises((prev) =>
-      prev.map((e) => {
-        if (e.exerciseId !== exerciseId) return e;
-        const newSet: SetEntry = {
-          id: uuidv4(),
-          setType: "warmup",
-          setNumber: e.warmupSets.length + 1,
-          weight: "",
-          reps: "",
-          rpe: "",
-          saved: false,
-        };
-        return { ...e, warmupSets: [...e.warmupSets, newSet] };
-      })
-    );
-  }, []);
 
   const handleSubstitute = useCallback(
     (
@@ -727,7 +627,6 @@ function ActiveWorkout({ session, templateName }: ActiveWorkoutProps) {
             exerciseId: newExerciseId,
             exerciseName: newExerciseName,
             equipment: newEquipment,
-            warmupSets: e.warmupSets.map((s) => ({ ...s, saved: false })),
             workingSets: e.workingSets.map((s) => ({ ...s, saved: false })),
           };
         })
@@ -736,26 +635,24 @@ function ActiveWorkout({ session, templateName }: ActiveWorkoutProps) {
     []
   );
 
-  const handleSetSaved = useCallback((restSeconds: number) => {
-    setRestTimerSeconds(restSeconds);
-  }, []);
+  async function handleAddExercise(ex: DbExercise) {
+    // Look up last max weight for warmup guidance
+    const progressRecords = await db.exerciseProgress
+      .where("exercise_id")
+      .equals(ex.id)
+      .toArray();
+    const lastMaxWeight = progressRecords.length > 0
+      ? Math.max(...progressRecords.map((p) => p.max_weight))
+      : null;
 
-  function handleToggleQuickMode() {
-    setQuickMode((prev) => {
-      const next = !prev;
-      localStorage.setItem("quickLogMode", String(next));
-      return next;
-    });
-  }
-
-  function handleAddExercise(ex: DbExercise) {
     const newEntry: ExerciseEntry = {
       prescriptionId: null,
       exerciseId: ex.id,
       exerciseName: ex.name,
       equipment: ex.equipment,
       prescription: null,
-      warmupSets: [],
+      lastMaxWeight,
+      warmupCount: lastMaxWeight ? 2 : 0,
       workingSets: [
         {
           id: uuidv4(),
@@ -811,27 +708,9 @@ function ActiveWorkout({ session, templateName }: ActiveWorkoutProps) {
         )
         .toArray();
 
-      const warmupSets = await db.workoutSets
-        .where("session_id")
-        .equals(session.id)
-        .and(
-          (s) =>
-            s.exercise_id === entry.exerciseId && s.set_type === "warmup"
-        )
-        .toArray();
-
       if (workingSets.length === 0) continue;
 
       const maxWeight = Math.max(...workingSets.map((s) => s.weight));
-
-      let warmupWeightRange: string | null = null;
-      if (warmupSets.length > 0) {
-        const warmupWeights = warmupSets.map((s) => s.weight);
-        const minW = Math.min(...warmupWeights);
-        const maxW = Math.max(...warmupWeights);
-        warmupWeightRange = `${minW} - ${maxW}`;
-      }
-
       const yearWeek = session.year_week ?? getYearWeek(new Date());
 
       // Check for existing progress record
@@ -848,8 +727,6 @@ function ActiveWorkout({ session, templateName }: ActiveWorkoutProps) {
         max_weight: existing
           ? Math.max(existing.max_weight, maxWeight)
           : maxWeight,
-        warmup_weight_range: warmupWeightRange,
-        warmup_sets_done: warmupSets.length,
         created_at: existing?.created_at ?? new Date().toISOString(),
         sync_status: SYNC_STATUS.pending,
       };
@@ -857,8 +734,46 @@ function ActiveWorkout({ session, templateName }: ActiveWorkoutProps) {
       await db.exerciseProgress.put(progressRecord);
     }
 
+    // Advance program if this session is part of one
+    if (session.program_id) {
+      const program = await db.programs.get(session.program_id);
+      if (program) {
+        const routineCount = await db.programRoutines
+          .where("program_id")
+          .equals(program.id)
+          .count();
+
+        let newIndex = program.current_routine_index + 1;
+        let newWeeksCompleted = program.weeks_completed;
+
+        if (newIndex >= routineCount) {
+          newIndex = 0;
+          newWeeksCompleted = program.weeks_completed + 1;
+        }
+
+        await db.programs.update(program.id, {
+          current_routine_index: newIndex,
+          weeks_completed: newWeeksCompleted,
+          last_workout_at: finishedAt,
+          sync_status: SYNC_STATUS.pending,
+        });
+
+        if (navigator.onLine) {
+          try {
+            await api.post(`/programs/${program.id}/advance`);
+          } catch {
+            // Will sync later
+          }
+        }
+      }
+    }
+
     setIsFinishing(false);
-    navigate("/", { replace: true });
+    if (onFinished) {
+      onFinished();
+    } else {
+      navigate("/", { replace: true });
+    }
   }
 
   if (isLoading) {
@@ -870,26 +785,15 @@ function ActiveWorkout({ session, templateName }: ActiveWorkoutProps) {
   }
 
   return (
-    <div className="flex flex-col gap-4 pb-24">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">
-            {templateName ?? "Ad-hoc Workout"}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {session.week_type === "deload" ? "Deload" : "Normal"} Week
-            {session.year_week && ` - ${session.year_week}`}
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className={`min-h-[36px] shrink-0 ${quickMode ? "bg-primary text-primary-foreground hover:bg-primary/90" : ""}`}
-          onClick={handleToggleQuickMode}
-          type="button"
-        >
-          Quick Log
-        </Button>
+    <div className="flex flex-col gap-4">
+      <div>
+        <h1 className="text-2xl font-bold">
+          {templateName ?? "Ad-hoc Workout"}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          {session.week_type === "deload" ? "Deload" : "Normal"} Week
+          {session.year_week && ` - ${session.year_week}`}
+        </p>
       </div>
 
       {exercises.map((entry) => (
@@ -897,11 +801,8 @@ function ActiveWorkout({ session, templateName }: ActiveWorkoutProps) {
           <ExerciseCard
             entry={entry}
             sessionId={session.id}
-            quickMode={quickMode}
             onUpdateSets={handleUpdateSets}
-            onAddWarmupSet={handleAddWarmupSet}
             onSubstitute={handleSubstitute}
-            onSetSaved={handleSetSaved}
           />
           {!entry.prescription && (
             <Button
@@ -929,25 +830,15 @@ function ActiveWorkout({ session, templateName }: ActiveWorkoutProps) {
         </Button>
       )}
 
-      {/* Rest Timer */}
-      {restTimerSeconds !== null && (
-        <RestTimer
-          durationSeconds={restTimerSeconds}
-          onComplete={() => setRestTimerSeconds(null)}
-          onDismiss={() => setRestTimerSeconds(null)}
-        />
-      )}
-
-      <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 safe-area-inset-bottom">
-        <Button
-          className="w-full min-h-[48px] text-base font-semibold"
-          onClick={() => void handleFinishWorkout()}
-          disabled={isFinishing}
-          type="button"
-        >
-          {isFinishing ? "Finishing..." : "Finish Workout"}
-        </Button>
-      </div>
+      {/* Finish Workout */}
+      <Button
+        className="w-full min-h-[48px] text-base font-semibold mt-4"
+        onClick={() => void handleFinishWorkout()}
+        disabled={isFinishing}
+        type="button"
+      >
+        {isFinishing ? "Finishing..." : "Finish Workout"}
+      </Button>
 
       {/* Exercise picker for ad-hoc */}
       <Dialog
@@ -969,6 +860,337 @@ function ActiveWorkout({ session, templateName }: ActiveWorkoutProps) {
 }
 
 // ---------------------------------------------------------------------------
+// Today Screen (program-driven)
+// ---------------------------------------------------------------------------
+
+interface TodayScreenProps {
+  program: DbProgram;
+  onStartWorkout: (
+    templateId: string,
+    weekType: WeekType,
+    templateName: string | null,
+    programId: string,
+  ) => void;
+  onAdHoc: () => void;
+}
+
+interface RoutineInfo {
+  routine: DbProgramRoutine;
+  template: DbWorkoutTemplate | null;
+  exerciseCount: number;
+  exerciseNames: string[];
+}
+
+function TodayScreen({ program, onStartWorkout, onAdHoc }: TodayScreenProps) {
+  const [routineInfos, setRoutineInfos] = useState<RoutineInfo[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [selectedExercises, setSelectedExercises] = useState<DbTemplateExercise[]>([]);
+  const [exerciseMap, setExerciseMap] = useState<Map<string, DbExercise>>(new Map());
+  const [progressMap, setProgressMap] = useState<Map<string, number>>(new Map());
+  const [isLoading, setIsLoading] = useState(true);
+
+  const isDeload =
+    program.weeks_completed % program.deload_every_n_weeks ===
+    program.deload_every_n_weeks - 1;
+  const weekType: WeekType = isDeload ? "deload" : "normal";
+  const weekNumber =
+    (program.weeks_completed % program.deload_every_n_weeks) + 1;
+
+  // The "last done" routine is the one before current_routine_index (wrapping)
+  const lastDoneIndex =
+    routineInfos.length > 0
+      ? (program.current_routine_index - 1 + routineInfos.length) % routineInfos.length
+      : -1;
+
+  // Load all routines and their template info
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      const allRoutines = await db.programRoutines
+        .where("program_id")
+        .equals(program.id)
+        .toArray();
+      allRoutines.sort((a, b) => a.order - b.order);
+
+      if (cancelled || allRoutines.length === 0) {
+        setIsLoading(false);
+        return;
+      }
+
+      const infos: RoutineInfo[] = [];
+      for (const routine of allRoutines) {
+        const template = await db.workoutTemplates.get(routine.template_id) ?? null;
+
+        // Count exercises for this template in the current week type
+        const texercises = template
+          ? await db.templateExercises
+              .where("template_id")
+              .equals(template.id)
+              .and((te) => te.week_type === weekType)
+              .toArray()
+          : [];
+
+        // Get exercise names for preview
+        const exerciseIds = texercises.map((te) => te.exercise_id);
+        const exercises =
+          exerciseIds.length > 0
+            ? await db.exercises.where("id").anyOf(exerciseIds).toArray()
+            : [];
+        const nameMap = new Map(exercises.map((e) => [e.id, e.name]));
+        const names = texercises
+          .sort((a, b) => a.order - b.order)
+          .map((te) => nameMap.get(te.exercise_id) ?? "Unknown");
+
+        infos.push({
+          routine,
+          template,
+          exerciseCount: texercises.length,
+          exerciseNames: names,
+        });
+      }
+
+      if (!cancelled) {
+        setRoutineInfos(infos);
+        // Auto-select the suggested next routine
+        setSelectedIndex(program.current_routine_index < infos.length ? program.current_routine_index : 0);
+        setIsLoading(false);
+      }
+    }
+
+    void load();
+    return () => { cancelled = true; };
+  }, [program, weekType]);
+
+  // When a routine is selected, load its full exercise details
+  useEffect(() => {
+    if (selectedIndex === null || selectedIndex >= routineInfos.length) return;
+    let cancelled = false;
+
+    async function loadExercises() {
+      const info = routineInfos[selectedIndex!];
+      if (!info.template) return;
+
+      const texercises = await db.templateExercises
+        .where("template_id")
+        .equals(info.template.id)
+        .and((te) => te.week_type === weekType)
+        .sortBy("order");
+
+      if (cancelled) return;
+      setSelectedExercises(texercises);
+
+      const exerciseIds = texercises.map((te) => te.exercise_id);
+      if (exerciseIds.length > 0) {
+        const exercises = await db.exercises.where("id").anyOf(exerciseIds).toArray();
+        if (!cancelled) setExerciseMap(new Map(exercises.map((e) => [e.id, e])));
+
+        const allProgress = await db.exerciseProgress
+          .where("exercise_id")
+          .anyOf(exerciseIds)
+          .toArray();
+        const maxWeights = new Map<string, number>();
+        for (const p of allProgress) {
+          const current = maxWeights.get(p.exercise_id) ?? 0;
+          if (p.max_weight > current) maxWeights.set(p.exercise_id, p.max_weight);
+        }
+        if (!cancelled) setProgressMap(maxWeights);
+      }
+    }
+
+    void loadExercises();
+    return () => { cancelled = true; };
+  }, [selectedIndex, routineInfos, weekType]);
+
+  function handleStart() {
+    if (selectedIndex === null) return;
+    const info = routineInfos[selectedIndex];
+    if (!info?.template) return;
+
+    onStartWorkout(
+      info.routine.template_id,
+      weekType,
+      info.template.name,
+      program.id,
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  const selectedInfo = selectedIndex !== null ? routineInfos[selectedIndex] : null;
+
+  return (
+    <div className="flex flex-col gap-4">
+      <h1 className="text-2xl font-bold">{program.name}</h1>
+
+      {/* Week indicator */}
+      <div
+        className={`rounded-lg px-4 py-2 text-center font-semibold ${
+          isDeload
+            ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+            : "bg-primary/10 text-primary"
+        }`}
+      >
+        {isDeload
+          ? "DELOAD WEEK"
+          : `Week ${weekNumber} of ${program.deload_every_n_weeks}`}
+      </div>
+
+      {/* All routines */}
+      <div className="flex flex-col gap-2">
+        <p className="text-sm font-medium text-muted-foreground">Select a routine</p>
+        {routineInfos.map((info, index) => {
+          const isSelected = selectedIndex === index;
+          const isNext = index === program.current_routine_index;
+          const isLastDone = index === lastDoneIndex && program.last_workout_at !== null;
+
+          return (
+            <button
+              key={info.routine.id}
+              type="button"
+              onClick={() => setSelectedIndex(index)}
+              className={`flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors ${
+                isSelected
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:bg-muted/50"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-medium text-sm">
+                  {info.template?.name ?? "Unknown Template"}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  {isLastDone && (
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      Last done
+                    </span>
+                  )}
+                  {isNext && (
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                      Up next
+                    </span>
+                  )}
+                </div>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {info.exerciseCount} exercise{info.exerciseCount !== 1 ? "s" : ""}
+                {info.exerciseNames.length > 0 && (
+                  <> &mdash; {info.exerciseNames.slice(0, 3).join(", ")}
+                    {info.exerciseNames.length > 3 && `, +${info.exerciseNames.length - 3} more`}
+                  </>
+                )}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Selected routine exercise details */}
+      {selectedInfo?.template && selectedExercises.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{selectedInfo.template.name}</CardTitle>
+            <CardDescription>
+              {selectedExercises.length} exercise{selectedExercises.length !== 1 ? "s" : ""}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {selectedExercises.map((te) => {
+              const ex = exerciseMap.get(te.exercise_id);
+              const lastWeight = progressMap.get(te.exercise_id) ?? null;
+              const warmupGuidance =
+                te.warmup_sets > 0
+                  ? calculateWarmupSets(te.warmup_sets, lastWeight)
+                  : null;
+
+              return (
+                <div
+                  key={te.id}
+                  className="rounded-md border border-border p-3"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="font-medium text-sm">
+                        {ex?.name ?? "Unknown"}
+                      </p>
+                      {ex?.equipment && (
+                        <p className="text-xs text-muted-foreground">
+                          {ex.equipment}
+                        </p>
+                      )}
+                    </div>
+                    {lastWeight !== null && (
+                      <span className="text-xs text-muted-foreground">
+                        Last: {lastWeight} kg
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    <span className="inline-block rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                      {te.working_sets}x{te.min_reps}-{te.max_reps} @ RPE{" "}
+                      {te.early_set_rpe_min}-{te.last_set_rpe_max}, Rest:{" "}
+                      {te.rest_period}
+                    </span>
+                    {te.intensity_technique && (
+                      <span className="inline-block rounded-full bg-orange-500/10 px-2.5 py-0.5 text-xs font-medium text-orange-600 dark:text-orange-400">
+                        {te.intensity_technique}
+                      </span>
+                    )}
+                  </div>
+
+                  {warmupGuidance && (
+                    <div className="mt-2 flex flex-col gap-1">
+                      <p className="text-xs text-muted-foreground">
+                        Warmup ({te.warmup_sets} sets)
+                      </p>
+                      {warmupGuidance.map((ws) => (
+                        <div
+                          key={ws.setNumber}
+                          className="flex items-center gap-3 text-xs text-muted-foreground"
+                        >
+                          <span>{ws.weight} kg</span>
+                          <span>&times; {ws.reps} reps</span>
+                          <span>({ws.percentage}%)</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Start button */}
+      <Button
+        className="min-h-[48px] text-base font-semibold"
+        onClick={handleStart}
+        disabled={selectedIndex === null || !selectedInfo?.template}
+      >
+        Start Workout
+      </Button>
+
+      {/* Ad-hoc link */}
+      <button
+        type="button"
+        className="text-sm text-muted-foreground underline text-center"
+        onClick={onAdHoc}
+      >
+        Ad-hoc Workout
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main Workout Page
 // ---------------------------------------------------------------------------
 
@@ -978,37 +1200,57 @@ export default function Workout() {
 
   const [session, setSession] = useState<DbWorkoutSession | null>(null);
   const [templateName, setTemplateName] = useState<string | null>(null);
+  const [activeProgram, setActiveProgram] = useState<DbProgram | null>(null);
   const [checkingActive, setCheckingActive] = useState(true);
+  const [showAdHoc, setShowAdHoc] = useState(false);
 
-  // Check for an active (unfinished) session on mount
+  // Check for an active (unfinished) session and active program on mount
   useEffect(() => {
     void (async () => {
-      if (!userId) {
-        setCheckingActive(false);
-        return;
-      }
-
-      const active = await db.workoutSessions
-        .where("user_id")
-        .equals(userId)
-        .and((s) => s.finished_at === null)
-        .first();
-
-      if (active) {
-        setSession(active);
-        if (active.template_id) {
-          const template = await db.workoutTemplates.get(active.template_id);
-          setTemplateName(template?.name ?? null);
+      try {
+        if (!userId) {
+          setCheckingActive(false);
+          return;
         }
+
+        // Check for unfinished session first
+        const active = await db.workoutSessions
+          .where("user_id")
+          .equals(userId)
+          .and((s) => s.finished_at === null)
+          .first();
+
+        if (active) {
+          setSession(active);
+          if (active.template_id) {
+            const template = await db.workoutTemplates.get(active.template_id);
+            setTemplateName(template?.name ?? null);
+          }
+          setCheckingActive(false);
+          return;
+        }
+
+        // Check for active program — scan all and filter since Dexie
+        // indexes booleans inconsistently across environments
+        const allPrograms = await db.programs.toArray();
+        const program = allPrograms.find((p) => p.is_active);
+
+        if (program) {
+          setActiveProgram(program);
+        }
+      } catch {
+        // Dexie query failed — just show setup screen
+      } finally {
+        setCheckingActive(false);
       }
-      setCheckingActive(false);
     })();
   }, [userId]);
 
   async function handleStart(
     templateId: string | null,
     weekType: WeekType,
-    name: string | null
+    name: string | null,
+    programId?: string,
   ) {
     const newSession: DbWorkoutSession = {
       id: uuidv4(),
@@ -1019,12 +1261,29 @@ export default function Workout() {
       started_at: new Date().toISOString(),
       finished_at: null,
       notes: null,
+      program_id: programId ?? null,
       sync_status: SYNC_STATUS.pending,
     };
 
     await db.workoutSessions.put(newSession);
     setSession(newSession);
     setTemplateName(name);
+  }
+
+  function handleWorkoutFinished() {
+    setSession(null);
+    setTemplateName(null);
+    setShowAdHoc(false);
+    // Reload active program
+    void (async () => {
+      try {
+        const allPrograms = await db.programs.toArray();
+        const program = allPrograms.find((p) => p.is_active);
+        setActiveProgram(program ?? null);
+      } catch {
+        setActiveProgram(null);
+      }
+    })();
   }
 
   if (checkingActive) {
@@ -1039,15 +1298,63 @@ export default function Workout() {
     );
   }
 
+  // State machine: 1) Active session, 2) Active program, 3) No program / Ad-hoc
+  let content: React.ReactNode;
+
+  if (session) {
+    content = (
+      <ActiveWorkout
+        session={session}
+        templateName={templateName}
+        onFinished={handleWorkoutFinished}
+      />
+    );
+  } else if (activeProgram && !showAdHoc) {
+    content = (
+      <TodayScreen
+        program={activeProgram}
+        onStartWorkout={(templateId, weekType, name, programId) =>
+          void handleStart(templateId, weekType, name, programId)
+        }
+        onAdHoc={() => setShowAdHoc(true)}
+      />
+    );
+  } else if (showAdHoc) {
+    content = (
+      <WorkoutSetup
+        onStart={(tid, wt, name) => void handleStart(tid, wt, name)}
+      />
+    );
+  } else {
+    // No active program — prompt the user to create one
+    content = (
+      <div className="flex flex-col items-center gap-6 py-12">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-2">No Active Program</h1>
+          <p className="text-muted-foreground">
+            Create a program and activate it to see your daily routine here.
+          </p>
+        </div>
+        <Button
+          className="min-h-[48px] w-full max-w-xs text-base font-semibold"
+          onClick={() => navigate("/programs")}
+        >
+          Go to Programs
+        </Button>
+        <button
+          type="button"
+          className="text-sm text-muted-foreground underline"
+          onClick={() => setShowAdHoc(true)}
+        >
+          Start an ad-hoc workout instead
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <main className="mx-auto max-w-md px-4 py-8">
-        {session ? (
-          <ActiveWorkout session={session} templateName={templateName} />
-        ) : (
-          <WorkoutSetup onStart={(tid, wt, name) => void handleStart(tid, wt, name)} />
-        )}
-      </main>
+    <div className="min-h-screen bg-background text-foreground pb-28">
+      <main className="mx-auto max-w-md px-4 py-8">{content}</main>
     </div>
   );
 }

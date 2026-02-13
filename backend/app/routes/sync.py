@@ -41,6 +41,7 @@ async def sync_data(
                     )
                     continue
                 existing.template_id = session_data.template_id
+                existing.program_id = session_data.program_id
                 existing.year_week = session_data.year_week
                 existing.week_type = session_data.week_type
                 existing.started_at = session_data.started_at
@@ -52,6 +53,7 @@ async def sync_data(
                     id=session_data.id,
                     user_id=current_user.id,
                     template_id=session_data.template_id,
+                    program_id=session_data.program_id,
                     year_week=session_data.year_week,
                     week_type=session_data.week_type,
                     started_at=session_data.started_at,

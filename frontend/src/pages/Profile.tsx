@@ -19,7 +19,7 @@ import DataExport from "@/components/DataExport";
 export default function Profile() {
   const { logout } = useAuth();
   const { state, dispatch } = useAuthContext();
-  const { isOnline, pendingCount, isSyncing, syncNow } = useSync();
+  const { isOnline, pendingCount, isSyncing, lastSyncError, syncNow } = useSync();
   const navigate = useNavigate();
 
   const user = state.user;
@@ -84,7 +84,7 @@ export default function Profile() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-background text-foreground pb-20">
+    <div className="min-h-screen bg-background text-foreground pb-28">
       <main className="mx-auto max-w-md px-4 py-6">
         <h1 className="mb-4 text-2xl font-bold">Profile</h1>
 
@@ -199,6 +199,9 @@ export default function Profile() {
             >
               {isSyncing ? "Syncing..." : "Sync Now"}
             </Button>
+            {lastSyncError && (
+              <p className="text-xs text-destructive">{lastSyncError}</p>
+            )}
           </CardContent>
         </Card>
 

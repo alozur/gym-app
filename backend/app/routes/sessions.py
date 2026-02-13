@@ -12,6 +12,8 @@ from sqlalchemy.orm import selectinload
 from app.dependencies import get_current_user, get_db
 from app.models import (
     ExerciseProgress,
+    Program,
+    ProgramRoutine,
     User,
     WorkoutSession,
     WorkoutSet,
@@ -63,6 +65,7 @@ async def create_session(
     session = WorkoutSession(
         user_id=current_user.id,
         template_id=body.template_id,
+        program_id=body.program_id,
         year_week=body.year_week,
         week_type=body.week_type,
         started_at=datetime.utcnow(),
@@ -123,6 +126,21 @@ async def update_session(
         session.notes = body.notes
     if body.finished_at is not None:
         session.finished_at = body.finished_at
+
+        # Advance program rotation when finishing a program-linked session
+        if session.program_id:
+            prog_result = await db.execute(
+                select(Program)
+                .where(Program.id == session.program_id)
+                .options(selectinload(Program.routines))
+            )
+            program = prog_result.scalar_one_or_none()
+            if program and program.routines:
+                program.current_routine_index += 1
+                if program.current_routine_index >= len(program.routines):
+                    program.current_routine_index = 0
+                    program.weeks_completed += 1
+                program.last_workout_at = datetime.utcnow()
 
     await db.commit()
     await db.refresh(session)
@@ -278,27 +296,3 @@ async def _update_exercise_progress(
             db.add(progress)
         elif weight > progress.max_weight:
             progress.max_weight = weight
-    elif set_type == "warmup":
-        if not progress:
-            progress = ExerciseProgress(
-                user_id=user_id,
-                exercise_id=exercise_id,
-                year_week=year_week,
-                max_weight=Decimal("0"),
-                warmup_sets_done=1,
-                warmup_weight_range=str(weight),
-            )
-            db.add(progress)
-        else:
-            # Update warmup tracking
-            progress.warmup_sets_done = (progress.warmup_sets_done or 0) + 1
-            existing_range = progress.warmup_weight_range
-            if existing_range:
-                parts = [Decimal(p.strip()) for p in existing_range.split("-")]
-                low = min(parts[0], weight)
-                high = max(parts[-1], weight)
-                progress.warmup_weight_range = (
-                    str(weight) if low == high else f"{low} - {high}"
-                )
-            else:
-                progress.warmup_weight_range = str(weight)
