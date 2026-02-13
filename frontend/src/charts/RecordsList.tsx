@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { db, type DbExercise } from "@/db/index";
 import { Card, CardContent } from "@/components/ui/card";
 import { Trophy } from "lucide-react";
+import { useUnitPreference } from "@/hooks/useUnitPreference";
 
 interface PersonalRecord {
   exerciseName: string;
@@ -11,6 +12,7 @@ interface PersonalRecord {
 
 export default function RecordsList() {
   const [records, setRecords] = useState<PersonalRecord[]>([]);
+  const { displayWeight } = useUnitPreference();
 
   useEffect(() => {
     let cancelled = false;
@@ -77,7 +79,7 @@ export default function RecordsList() {
               </p>
             </div>
             <span className="font-mono text-sm font-semibold">
-              {pr.maxWeight} kg
+              {displayWeight(pr.maxWeight)}
             </span>
           </CardContent>
         </Card>

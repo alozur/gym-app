@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
+import type { ReactNode } from "react";
 
 // Mock api client
 vi.mock("@/api/client", () => ({
@@ -36,6 +37,27 @@ vi.mock("@/db/index", async () => {
   };
 });
 
+// Mock AuthContext to avoid heavy real AuthProvider import graph
+vi.mock("@/context/AuthContext", () => ({
+  useAuthContext: () => ({
+    state: {
+      user: {
+        id: "u1",
+        email: "test@example.com",
+        display_name: "Test User",
+        preferred_unit: "kg",
+        created_at: "2024-01-01T00:00:00Z",
+      },
+      accessToken: "token",
+      refreshToken: "refresh",
+      isAuthenticated: true,
+      isLoading: false,
+    },
+    dispatch: vi.fn(),
+  }),
+  AuthProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
+
 // Mock uuid to return predictable values
 let uuidCounter = 0;
 vi.mock("uuid", () => ({
@@ -55,7 +77,6 @@ vi.mock("react-router-dom", async (importOriginal) => {
 // Import AFTER mocks
 import { db } from "@/db/index";
 import type { DbExercise } from "@/db/schema";
-import { AuthProvider } from "@/context/AuthContext";
 import TemplateBuilder from "@/pages/TemplateBuilder";
 
 const sampleExercises: DbExercise[] = [
@@ -88,9 +109,7 @@ const sampleExercises: DbExercise[] = [
 function renderTemplateBuilder() {
   return render(
     <MemoryRouter>
-      <AuthProvider>
-        <TemplateBuilder />
-      </AuthProvider>
+      <TemplateBuilder />
     </MemoryRouter>,
   );
 }

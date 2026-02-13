@@ -9,6 +9,7 @@ import {
   Tooltip,
 } from "recharts";
 import { db } from "@/db/index";
+import { useUnitPreference } from "@/hooks/useUnitPreference";
 
 interface VolumeData {
   muscleGroup: string;
@@ -17,6 +18,7 @@ interface VolumeData {
 
 export default function VolumeChart() {
   const [data, setData] = useState<VolumeData[]>([]);
+  const { unit, convertWeight } = useUnitPreference();
 
   useEffect(() => {
     let cancelled = false;
@@ -56,6 +58,11 @@ export default function VolumeChart() {
     };
   }, []);
 
+  const displayData = data.map((d) => ({
+    ...d,
+    volume: Math.round(convertWeight(d.volume, "kg")),
+  }));
+
   if (data.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-muted-foreground">
@@ -66,7 +73,7 @@ export default function VolumeChart() {
 
   return (
     <ResponsiveContainer width="100%" height={250}>
-      <BarChart data={data}>
+      <BarChart data={displayData}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
         <XAxis
           dataKey="muscleGroup"
@@ -85,7 +92,7 @@ export default function VolumeChart() {
           dataKey="volume"
           fill="var(--chart-2)"
           radius={[4, 4, 0, 0]}
-          name="Volume (kg)"
+          name={`Volume (${unit})`}
         />
       </BarChart>
     </ResponsiveContainer>

@@ -18,6 +18,7 @@ import Workout from "@/pages/Workout";
 import ExerciseLog from "@/pages/ExerciseLog";
 import Dashboard from "@/pages/Dashboard";
 import Exercises from "@/pages/Exercises";
+import Profile from "@/pages/Profile";
 
 function AppContent() {
   const location = useLocation();
@@ -92,6 +93,14 @@ function AppContent() {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
             </ProtectedRoute>
           }
         />

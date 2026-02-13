@@ -62,11 +62,11 @@ describe("BottomNav", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/workout");
   });
 
-  it("does not navigate when Profile tab is clicked", async () => {
+  it("navigates to /profile when Profile tab is clicked", async () => {
     const user = userEvent.setup();
     renderNav("/templates");
 
     await user.click(screen.getByText("Profile"));
-    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith("/profile");
   });
 });

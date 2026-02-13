@@ -37,10 +37,17 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { ExercisePicker } from "@/components/ExercisePicker";
+import { RestTimer } from "@/components/RestTimer";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function parseRestSeconds(restPeriod: string | undefined): number {
+  if (!restPeriod) return 90;
+  const match = restPeriod.match(/(\d+)/);
+  return match ? parseInt(match[1], 10) * 60 : 90;
+}
 
 function getYearWeek(date: Date): string {
   const jan1 = new Date(date.getFullYear(), 0, 1);
@@ -192,11 +199,12 @@ interface SetRowProps {
   setType: "warmup" | "working";
   showRpe: boolean;
   targetRpe?: string;
+  autoFocusWeight?: boolean;
   onChange: (field: "weight" | "reps" | "rpe", value: string) => void;
   onSave: () => void;
 }
 
-function SetRow({ entry, setType, showRpe, targetRpe, onChange, onSave }: SetRowProps) {
+function SetRow({ entry, setType, showRpe, targetRpe, autoFocusWeight, onChange, onSave }: SetRowProps) {
   return (
     <div className="flex items-center gap-2">
       <span className="w-6 text-center text-xs text-muted-foreground shrink-0">
@@ -209,6 +217,7 @@ function SetRow({ entry, setType, showRpe, targetRpe, onChange, onSave }: SetRow
         value={entry.weight}
         onChange={(e) => onChange("weight", e.target.value)}
         className="min-h-[44px] flex-1"
+        autoFocus={autoFocusWeight}
       />
       {setType === "working" && (
         <>
@@ -262,6 +271,7 @@ function SetRow({ entry, setType, showRpe, targetRpe, onChange, onSave }: SetRow
 interface ExerciseCardProps {
   entry: ExerciseEntry;
   sessionId: string;
+  quickMode?: boolean;
   onUpdateSets: (
     exerciseId: string,
     setType: "warmup" | "working",
@@ -274,18 +284,22 @@ interface ExerciseCardProps {
     newExerciseName: string,
     newEquipment: string | null
   ) => void;
+  onSetSaved?: (restSeconds: number) => void;
 }
 
 function ExerciseCard({
   entry,
   sessionId,
+  quickMode,
   onUpdateSets,
   onAddWarmupSet,
   onSubstitute,
+  onSetSaved,
 }: ExerciseCardProps) {
   const [showSubstitutions, setShowSubstitutions] = useState(false);
   const [substitutes, setSubstitutes] = useState<DbExercise[]>([]);
   const [showIntensityPrompt, setShowIntensityPrompt] = useState(false);
+  const [lastSavedWorkingIndex, setLastSavedWorkingIndex] = useState<number | null>(null);
   const rx = entry.prescription;
 
   const prescriptionText = rx
@@ -357,13 +371,20 @@ function ExerciseCard({
     updated[index] = { ...updated[index], saved: true };
     onUpdateSets(entry.exerciseId, setType, updated);
 
-    // Check if this was the last working set
-    if (
-      setType === "working" &&
-      index === entry.workingSets.length - 1 &&
-      rx?.intensity_technique
-    ) {
-      setShowIntensityPrompt(true);
+    if (setType === "working") {
+      setLastSavedWorkingIndex(index);
+
+      const isLastWorkingSet = index === entry.workingSets.length - 1;
+
+      if (isLastWorkingSet && rx?.intensity_technique) {
+        setShowIntensityPrompt(true);
+      }
+
+      // Trigger rest timer for non-last working sets
+      if (!isLastWorkingSet && onSetSaved) {
+        const restSeconds = parseRestSeconds(rx?.rest_period);
+        onSetSaved(restSeconds);
+      }
     }
   }
 
@@ -383,7 +404,7 @@ function ExerciseCard({
           <div className="flex items-start justify-between gap-2">
             <div>
               <CardTitle className="text-base">{entry.exerciseName}</CardTitle>
-              {entry.equipment && (
+              {!quickMode && entry.equipment && (
                 <p className="text-xs text-muted-foreground">{entry.equipment}</p>
               )}
             </div>
@@ -399,7 +420,7 @@ function ExerciseCard({
               </Button>
             )}
           </div>
-          {prescriptionText && (
+          {!quickMode && prescriptionText && (
             <div className="flex flex-wrap gap-1.5 mt-1">
               <span className="inline-block rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
                 {prescriptionText}
@@ -413,34 +434,36 @@ function ExerciseCard({
           )}
         </CardHeader>
 
-        <CardContent className="flex flex-col gap-4">
-          {/* Warmup Sets */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">
-                Warmup{warmupRange && <span className="text-muted-foreground font-normal"> ({warmupRange})</span>}
-              </p>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onAddWarmupSet(entry.exerciseId)}
-                type="button"
-                className="min-h-[36px]"
-              >
-                + Add
-              </Button>
+        <CardContent className={`flex flex-col ${quickMode ? "gap-2" : "gap-4"}`}>
+          {/* Warmup Sets - hidden in quick mode */}
+          {!quickMode && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">
+                  Warmup{warmupRange && <span className="text-muted-foreground font-normal"> ({warmupRange})</span>}
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onAddWarmupSet(entry.exerciseId)}
+                  type="button"
+                  className="min-h-[36px]"
+                >
+                  + Add
+                </Button>
+              </div>
+              {entry.warmupSets.map((s, i) => (
+                <SetRow
+                  key={s.id}
+                  entry={s}
+                  setType="warmup"
+                  showRpe={false}
+                  onChange={(field, value) => handleSetChange("warmup", i, field, value)}
+                  onSave={() => void handleSaveSet("warmup", i)}
+                />
+              ))}
             </div>
-            {entry.warmupSets.map((s, i) => (
-              <SetRow
-                key={s.id}
-                entry={s}
-                setType="warmup"
-                showRpe={false}
-                onChange={(field, value) => handleSetChange("warmup", i, field, value)}
-                onSave={() => void handleSaveSet("warmup", i)}
-              />
-            ))}
-          </div>
+          )}
 
           {/* Working Sets */}
           <div className="flex flex-col gap-2">
@@ -457,8 +480,14 @@ function ExerciseCard({
                 key={s.id}
                 entry={s}
                 setType="working"
-                showRpe
+                showRpe={!quickMode}
                 targetRpe={getTargetRpe(i)}
+                autoFocusWeight={
+                  quickMode &&
+                  lastSavedWorkingIndex !== null &&
+                  i === lastSavedWorkingIndex + 1 &&
+                  !s.saved
+                }
                 onChange={(field, value) => handleSetChange("working", i, field, value)}
                 onSave={() => void handleSaveSet("working", i)}
               />
@@ -566,6 +595,10 @@ function ActiveWorkout({ session, templateName }: ActiveWorkoutProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
+  const [restTimerSeconds, setRestTimerSeconds] = useState<number | null>(null);
+  const [quickMode, setQuickMode] = useState(
+    () => localStorage.getItem("quickLogMode") === "true"
+  );
 
   const existingExerciseIds = useMemo(
     () => exercises.map((e) => e.exerciseId),
@@ -703,6 +736,18 @@ function ActiveWorkout({ session, templateName }: ActiveWorkoutProps) {
     []
   );
 
+  const handleSetSaved = useCallback((restSeconds: number) => {
+    setRestTimerSeconds(restSeconds);
+  }, []);
+
+  function handleToggleQuickMode() {
+    setQuickMode((prev) => {
+      const next = !prev;
+      localStorage.setItem("quickLogMode", String(next));
+      return next;
+    });
+  }
+
   function handleAddExercise(ex: DbExercise) {
     const newEntry: ExerciseEntry = {
       prescriptionId: null,
@@ -826,14 +871,25 @@ function ActiveWorkout({ session, templateName }: ActiveWorkoutProps) {
 
   return (
     <div className="flex flex-col gap-4 pb-24">
-      <div>
-        <h1 className="text-2xl font-bold">
-          {templateName ?? "Ad-hoc Workout"}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {session.week_type === "deload" ? "Deload" : "Normal"} Week
-          {session.year_week && ` - ${session.year_week}`}
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">
+            {templateName ?? "Ad-hoc Workout"}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {session.week_type === "deload" ? "Deload" : "Normal"} Week
+            {session.year_week && ` - ${session.year_week}`}
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className={`min-h-[36px] shrink-0 ${quickMode ? "bg-primary text-primary-foreground hover:bg-primary/90" : ""}`}
+          onClick={handleToggleQuickMode}
+          type="button"
+        >
+          Quick Log
+        </Button>
       </div>
 
       {exercises.map((entry) => (
@@ -841,9 +897,11 @@ function ActiveWorkout({ session, templateName }: ActiveWorkoutProps) {
           <ExerciseCard
             entry={entry}
             sessionId={session.id}
+            quickMode={quickMode}
             onUpdateSets={handleUpdateSets}
             onAddWarmupSet={handleAddWarmupSet}
             onSubstitute={handleSubstitute}
+            onSetSaved={handleSetSaved}
           />
           {!entry.prescription && (
             <Button
@@ -869,6 +927,15 @@ function ActiveWorkout({ session, templateName }: ActiveWorkoutProps) {
         >
           + Add Exercise
         </Button>
+      )}
+
+      {/* Rest Timer */}
+      {restTimerSeconds !== null && (
+        <RestTimer
+          durationSeconds={restTimerSeconds}
+          onComplete={() => setRestTimerSeconds(null)}
+          onDismiss={() => setRestTimerSeconds(null)}
+        />
       )}
 
       <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 safe-area-inset-bottom">

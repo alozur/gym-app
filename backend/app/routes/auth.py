@@ -18,6 +18,7 @@ from app.schemas import (
     RegisterRequest,
     TokenResponse,
     UserResponse,
+    UserUpdateRequest,
 )
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -101,6 +102,27 @@ async def refresh(
 @router.get("/me", response_model=UserResponse)
 async def me(current_user: User = Depends(get_current_user)) -> UserResponse:
     """Return the currently authenticated user."""
+    return UserResponse.model_validate(current_user)
+
+
+@router.put("/me", response_model=UserResponse)
+async def update_me(
+    body: UserUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> UserResponse:
+    """Update the currently authenticated user's profile."""
+    if body.display_name is not None:
+        current_user.display_name = body.display_name
+    if body.preferred_unit is not None:
+        if body.preferred_unit not in ("kg", "lbs"):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="preferred_unit must be 'kg' or 'lbs'",
+            )
+        current_user.preferred_unit = body.preferred_unit
+    await db.commit()
+    await db.refresh(current_user)
     return UserResponse.model_validate(current_user)
 
 

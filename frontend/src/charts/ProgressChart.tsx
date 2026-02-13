@@ -9,6 +9,7 @@ import {
   Tooltip,
 } from "recharts";
 import { db } from "@/db/index";
+import { useUnitPreference } from "@/hooks/useUnitPreference";
 
 interface ProgressChartProps {
   exerciseId: string;
@@ -21,6 +22,7 @@ interface ChartPoint {
 
 export default function ProgressChart({ exerciseId }: ProgressChartProps) {
   const [data, setData] = useState<ChartPoint[]>([]);
+  const { unit, convertWeight } = useUnitPreference();
 
   useEffect(() => {
     if (!exerciseId) return;
@@ -47,6 +49,11 @@ export default function ProgressChart({ exerciseId }: ProgressChartProps) {
     };
   }, [exerciseId]);
 
+  const displayData = data.map((d) => ({
+    ...d,
+    maxWeight: convertWeight(d.maxWeight, "kg"),
+  }));
+
   if (data.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-muted-foreground">
@@ -57,7 +64,7 @@ export default function ProgressChart({ exerciseId }: ProgressChartProps) {
 
   return (
     <ResponsiveContainer width="100%" height={250}>
-      <LineChart data={data}>
+      <LineChart data={displayData}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
         <XAxis
           dataKey="yearWeek"
@@ -78,7 +85,7 @@ export default function ProgressChart({ exerciseId }: ProgressChartProps) {
           stroke="var(--chart-1)"
           strokeWidth={2}
           dot={{ r: 3 }}
-          name="Max Weight (kg)"
+          name={`Max Weight (${unit})`}
         />
       </LineChart>
     </ResponsiveContainer>

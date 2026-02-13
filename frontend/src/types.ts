@@ -31,6 +31,11 @@ export interface UserResponse {
   created_at: string;
 }
 
+export interface UserUpdateRequest {
+  display_name?: string;
+  preferred_unit?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Message
 // ---------------------------------------------------------------------------

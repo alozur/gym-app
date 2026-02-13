@@ -44,6 +44,11 @@ class UserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class UserUpdateRequest(BaseModel):
+    display_name: str | None = None
+    preferred_unit: str | None = None  # 'kg' or 'lbs'
+
+
 # ---------------------------------------------------------------------------
 # Message
 # ---------------------------------------------------------------------------

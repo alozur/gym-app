@@ -13,6 +13,7 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useUnitPreference } from "@/hooks/useUnitPreference";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -31,6 +32,7 @@ interface WeekRow {
 
 export default function ExerciseLog() {
   const { id } = useParams<{ id: string }>();
+  const { displayWeight, convertWeight, unit } = useUnitPreference();
   const [exercise, setExercise] = useState<DbExercise | null>(null);
   const [progress, setProgress] = useState<DbExerciseProgress[]>([]);
   const [sets, setSets] = useState<DbWorkoutSet[]>([]);
@@ -234,7 +236,7 @@ export default function ExerciseLog() {
                               >
                                 {s ? (
                                   <span className="font-mono text-xs">
-                                    {s.weight}&times;{s.reps}
+                                    {displayWeight(s.weight)}&times;{s.reps}
                                   </span>
                                 ) : (
                                   <span className="text-muted-foreground">
@@ -247,7 +249,7 @@ export default function ExerciseLog() {
                           <td className="py-2 px-2 text-center whitespace-nowrap">
                             {row.maxWeight != null ? (
                               <span className="font-mono text-xs font-semibold">
-                                {row.maxWeight} kg
+                                {displayWeight(row.maxWeight)}
                               </span>
                             ) : (
                               <span className="text-muted-foreground">--</span>
@@ -256,7 +258,14 @@ export default function ExerciseLog() {
                           <td className="py-2 pl-2 text-center whitespace-nowrap">
                             {row.warmupRange ? (
                               <span className="font-mono text-xs">
-                                {row.warmupRange} kg
+                                {row.warmupRange
+                                  .split("-")
+                                  .map((v) => {
+                                    const n = parseFloat(v.trim());
+                                    return isNaN(n) ? v : convertWeight(n, "kg");
+                                  })
+                                  .join("-")}{" "}
+                                {unit}
                               </span>
                             ) : (
                               <span className="text-muted-foreground">--</span>

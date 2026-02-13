@@ -30,8 +30,8 @@ const tabs: NavTab[] = [
   {
     label: "Profile",
     icon: User,
-    path: null,
-    isActive: () => false,
+    path: "/profile",
+    isActive: (p) => p === "/profile",
   },
 ];
 

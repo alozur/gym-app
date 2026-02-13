@@ -27,6 +27,26 @@ vi.mock("@/db/index", async () => {
   };
 });
 
+vi.mock("@/context/AuthContext", () => ({
+  useAuthContext: () => ({
+    state: {
+      user: {
+        id: "u1",
+        email: "test@example.com",
+        display_name: "Test User",
+        preferred_unit: "kg",
+        created_at: "2024-01-01T00:00:00Z",
+      },
+      accessToken: "token",
+      refreshToken: "refresh",
+      isAuthenticated: true,
+      isLoading: false,
+    },
+    dispatch: vi.fn(),
+  }),
+  AuthProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
+
 vi.mock("recharts", () => ({
   ResponsiveContainer: ({ children }: { children: ReactNode }) => (
     <div data-testid="responsive-container">{children}</div>
