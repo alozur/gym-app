@@ -40,15 +40,15 @@ async def create_template(
     current_user: User = Depends(get_current_user),
 ) -> WorkoutTemplate:
     """Create a workout template with exercise prescriptions for normal and deload weeks."""
-    template = WorkoutTemplate(
-        user_id=current_user.id,
-        name=body.name,
-    )
+    kwargs: dict = dict(user_id=current_user.id, name=body.name)
+    if body.id:
+        kwargs["id"] = body.id
+    template = WorkoutTemplate(**kwargs)
     db.add(template)
     await db.flush()
 
     for te in body.template_exercises:
-        template_exercise = TemplateExercise(
+        tekw: dict = dict(
             template_id=template.id,
             exercise_id=te.exercise_id,
             week_type=te.week_type,
@@ -64,6 +64,9 @@ async def create_template(
             intensity_technique=te.intensity_technique,
             warmup_sets=te.warmup_sets,
         )
+        if te.id:
+            tekw["id"] = te.id
+        template_exercise = TemplateExercise(**tekw)
         db.add(template_exercise)
 
     await db.commit()

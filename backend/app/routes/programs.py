@@ -52,20 +52,26 @@ async def create_program(
     current_user: User = Depends(get_current_user),
 ) -> Program:
     """Create a program with routines referencing templates."""
-    program = Program(
+    kwargs: dict = dict(
         user_id=current_user.id,
         name=body.name,
         deload_every_n_weeks=body.deload_every_n_weeks,
     )
+    if body.id:
+        kwargs["id"] = body.id
+    program = Program(**kwargs)
     db.add(program)
     await db.flush()
 
     for r in body.routines:
-        routine = ProgramRoutine(
+        rkw: dict = dict(
             program_id=program.id,
             template_id=r.template_id,
             order=r.order,
         )
+        if r.id:
+            rkw["id"] = r.id
+        routine = ProgramRoutine(**rkw)
         db.add(routine)
 
     await db.commit()

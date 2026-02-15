@@ -200,9 +200,11 @@ export default function ProgramBuilder() {
       if (navigator.onLine) {
         try {
           const payload: ProgramCreate = {
+            id: progId,
             name: name.trim(),
             deload_every_n_weeks: deloadWeeks,
-            routines: routines.map((r, index) => ({
+            routines: dexieRoutines.map((r, index) => ({
+              id: r.id,
               template_id: r.template_id,
               order: index,
             })),

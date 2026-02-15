@@ -85,6 +85,7 @@ export interface ExerciseResponse {
 // ---------------------------------------------------------------------------
 
 export interface TemplateExerciseCreate {
+  id?: string;
   exercise_id: string;
   week_type: string;
   order: number;
@@ -118,6 +119,7 @@ export interface TemplateExerciseResponse {
 }
 
 export interface TemplateCreate {
+  id?: string;
   name: string;
   template_exercises: TemplateExerciseCreate[];
 }
@@ -140,6 +142,7 @@ export interface TemplateDetailResponse {
 // ---------------------------------------------------------------------------
 
 export interface ProgramRoutineCreate {
+  id?: string;
   template_id: string;
   order: number;
 }
@@ -152,6 +155,7 @@ export interface ProgramRoutineResponse {
 }
 
 export interface ProgramCreate {
+  id?: string;
   name: string;
   deload_every_n_weeks: number;
   routines: ProgramRoutineCreate[];

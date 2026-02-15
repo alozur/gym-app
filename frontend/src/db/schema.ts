@@ -72,6 +72,7 @@ export interface DbTemplateExercise {
   rest_period: string;
   intensity_technique: string | null;
   warmup_sets: number;
+  parent_exercise_id: string | null;
   sync_status: SyncStatus;
 }
 

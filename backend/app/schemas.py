@@ -113,6 +113,7 @@ class ExerciseResponse(BaseModel):
 
 
 class TemplateExerciseCreate(BaseModel):
+    id: str | None = None
     exercise_id: str
     week_type: str = Field(..., min_length=1, max_length=20)
     order: int = Field(..., ge=0)
@@ -154,6 +155,7 @@ class TemplateExerciseResponse(BaseModel):
 
 
 class TemplateCreate(BaseModel):
+    id: str | None = None
     name: str = Field(..., min_length=1, max_length=200)
     template_exercises: list[TemplateExerciseCreate] = []
 
@@ -322,6 +324,7 @@ class SyncResponse(BaseModel):
 
 
 class ProgramRoutineCreate(BaseModel):
+    id: str | None = None
     template_id: str
     order: int = Field(..., ge=0)
 
@@ -343,6 +346,7 @@ class ProgramRoutineResponse(BaseModel):
 
 
 class ProgramCreate(BaseModel):
+    id: str | None = None
     name: str = Field(..., min_length=1, max_length=200)
     deload_every_n_weeks: int = Field(default=6, ge=1, le=52)
     routines: list[ProgramRoutineCreate] = []

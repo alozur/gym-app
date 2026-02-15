@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
 import { db, type DbExercise, type DbTemplateExercise } from "@/db/index";
@@ -44,11 +44,18 @@ interface PrescriptionFields {
   warmup_sets: number;
 }
 
+interface SubstituteEntry {
+  exercise: DbExercise;
+  normal: PrescriptionFields;
+  deload: PrescriptionFields;
+}
+
 interface ExerciseEntry {
   localId: string;
   exercise: DbExercise;
   normal: PrescriptionFields;
   deload: PrescriptionFields;
+  substitutes: SubstituteEntry[];
 }
 
 // ---------------------------------------------------------------------------
@@ -249,6 +256,19 @@ export default function TemplateBuilder() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(isEditMode);
+  const [subPickerForEntry, setSubPickerForEntry] = useState<string | null>(null);
+
+  // All exercise IDs used anywhere in this template (main + substitutes)
+  const allUsedExerciseIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const e of entries) {
+      ids.push(e.exercise.id);
+      for (const s of e.substitutes) {
+        ids.push(s.exercise.id);
+      }
+    }
+    return ids;
+  }, [entries]);
 
   // -----------------------------------------------------------------------
   // Load existing template in edit mode
@@ -267,22 +287,47 @@ export default function TemplateBuilder() {
 
     setName(template.name);
 
-    const templateExercises = await db.templateExercises
+    const allTEs = await db.templateExercises
       .where("template_id")
       .equals(templateId)
       .toArray();
 
-    // Group by exercise_id and order
+    function toPrescription(te: DbTemplateExercise | undefined): PrescriptionFields {
+      if (!te) return defaultPrescription();
+      return {
+        working_sets: te.working_sets,
+        min_reps: te.min_reps,
+        max_reps: te.max_reps,
+        early_set_rpe_min: te.early_set_rpe_min,
+        early_set_rpe_max: te.early_set_rpe_max,
+        last_set_rpe_min: te.last_set_rpe_min,
+        last_set_rpe_max: te.last_set_rpe_max,
+        rest_period: te.rest_period,
+        intensity_technique: te.intensity_technique ?? "",
+        warmup_sets: te.warmup_sets,
+      };
+    }
+
+    // Separate main exercises (no parent) from substitute TEs
+    const mainTEs = allTEs.filter((te) => !te.parent_exercise_id);
+    const subTEs = allTEs.filter((te) => !!te.parent_exercise_id);
+
+    // Group main TEs by exercise_id
     const grouped = new Map<string, { normal?: DbTemplateExercise; deload?: DbTemplateExercise }>();
-    for (const te of templateExercises) {
+    for (const te of mainTEs) {
       const key = te.exercise_id;
       const existing = grouped.get(key) ?? {};
-      if (te.week_type === "normal") {
-        existing.normal = te;
-      } else {
-        existing.deload = te;
-      }
+      if (te.week_type === "normal") existing.normal = te;
+      else existing.deload = te;
       grouped.set(key, existing);
+    }
+
+    // Group substitute TEs by parent_exercise_id
+    const subsByParent = new Map<string, DbTemplateExercise[]>();
+    for (const te of subTEs) {
+      const arr = subsByParent.get(te.parent_exercise_id!) ?? [];
+      arr.push(te);
+      subsByParent.set(te.parent_exercise_id!, arr);
     }
 
     // Build entries
@@ -291,22 +336,47 @@ export default function TemplateBuilder() {
       const exercise = await db.exercises.get(exerciseId);
       if (!exercise) continue;
 
-      const order = pair.normal?.order ?? pair.deload?.order ?? loadedEntries.length;
+      const mainNormalId = pair.normal?.id;
 
-      function toPrescription(te: DbTemplateExercise | undefined): PrescriptionFields {
-        if (!te) return defaultPrescription();
-        return {
-          working_sets: te.working_sets,
-          min_reps: te.min_reps,
-          max_reps: te.max_reps,
-          early_set_rpe_min: te.early_set_rpe_min,
-          early_set_rpe_max: te.early_set_rpe_max,
-          last_set_rpe_min: te.last_set_rpe_min,
-          last_set_rpe_max: te.last_set_rpe_max,
-          rest_period: te.rest_period,
-          intensity_technique: te.intensity_technique ?? "",
-          warmup_sets: te.warmup_sets,
-        };
+      // Build substitute entries from new-format TEs
+      const childTEs = mainNormalId ? (subsByParent.get(mainNormalId) ?? []) : [];
+      let substitutes: SubstituteEntry[] = [];
+
+      if (childTEs.length > 0) {
+        // New format: group child TEs by exercise_id
+        const childGrouped = new Map<string, { normal?: DbTemplateExercise; deload?: DbTemplateExercise }>();
+        for (const te of childTEs) {
+          const existing = childGrouped.get(te.exercise_id) ?? {};
+          if (te.week_type === "normal") existing.normal = te;
+          else existing.deload = te;
+          childGrouped.set(te.exercise_id, existing);
+        }
+
+        for (const [subExId, subPair] of childGrouped) {
+          const subEx = await db.exercises.get(subExId);
+          if (!subEx) continue;
+          substitutes.push({
+            exercise: subEx,
+            normal: toPrescription(subPair.normal),
+            deload: toPrescription(subPair.deload),
+          });
+        }
+      } else {
+        // Fallback: load from old exerciseSubstitutions table
+        const subRecords = await db.exerciseSubstitutions
+          .where("exercise_id")
+          .equals(exerciseId)
+          .toArray();
+        const subIds = subRecords.map((s) => s.substitute_exercise_id);
+        const subExercises = subIds.length > 0
+          ? await db.exercises.where("id").anyOf(subIds).toArray()
+          : [];
+
+        substitutes = subExercises.map((subEx) => ({
+          exercise: subEx,
+          normal: defaultPrescription(),
+          deload: defaultDeloadPrescription(),
+        }));
       }
 
       loadedEntries.push({
@@ -314,17 +384,16 @@ export default function TemplateBuilder() {
         exercise,
         normal: toPrescription(pair.normal),
         deload: toPrescription(pair.deload),
+        substitutes,
       });
-
-      // Sort by order
-      loadedEntries.sort((a, b) => {
-        const aOrder = grouped.get(a.exercise.id)?.normal?.order ?? 0;
-        const bOrder = grouped.get(b.exercise.id)?.normal?.order ?? 0;
-        return aOrder - bOrder;
-      });
-
-      void order; // Used in sort above via closure
     }
+
+    // Sort by order
+    loadedEntries.sort((a, b) => {
+      const aOrder = grouped.get(a.exercise.id)?.normal?.order ?? 0;
+      const bOrder = grouped.get(b.exercise.id)?.normal?.order ?? 0;
+      return aOrder - bOrder;
+    });
 
     setEntries(loadedEntries);
     setIsLoading(false);
@@ -347,6 +416,7 @@ export default function TemplateBuilder() {
         exercise,
         normal: defaultPrescription(),
         deload: defaultDeloadPrescription(),
+        substitutes: [],
       },
     ]);
     setPickerOpen(false);
@@ -386,6 +456,78 @@ export default function TemplateBuilder() {
     );
   }
 
+  function updateExerciseField(localId: string, field: "youtube_url" | "notes", value: string) {
+    setEntries((prev) =>
+      prev.map((e) => {
+        if (e.localId !== localId) return e;
+        const updated = { ...e, exercise: { ...e.exercise, [field]: value || null } };
+        // Persist to Dexie immediately
+        void db.exercises.update(e.exercise.id, { [field]: value || null, sync_status: "pending" });
+        return updated;
+      }),
+    );
+  }
+
+  // -----------------------------------------------------------------------
+  // Substitute management
+  // -----------------------------------------------------------------------
+
+  function handleAddSubstitute(subExercise: DbExercise) {
+    const entryLocalId = subPickerForEntry;
+    if (!entryLocalId) return;
+
+    const newSub: SubstituteEntry = {
+      exercise: subExercise,
+      normal: defaultPrescription(),
+      deload: defaultDeloadPrescription(),
+    };
+
+    setEntries((prev) =>
+      prev.map((e) => {
+        if (e.localId !== entryLocalId) return e;
+        return { ...e, substitutes: [...e.substitutes, newSub] };
+      }),
+    );
+    setSubPickerForEntry(null);
+  }
+
+  function handleRemoveSubstitute(localId: string, subExerciseId: string) {
+    setEntries((prev) =>
+      prev.map((e) => {
+        if (e.localId !== localId) return e;
+        return { ...e, substitutes: e.substitutes.filter((s) => s.exercise.id !== subExerciseId) };
+      }),
+    );
+  }
+
+  function updateSubNormal(localId: string, subExerciseId: string, fields: PrescriptionFields) {
+    setEntries((prev) =>
+      prev.map((e) => {
+        if (e.localId !== localId) return e;
+        return {
+          ...e,
+          substitutes: e.substitutes.map((s) =>
+            s.exercise.id === subExerciseId ? { ...s, normal: fields } : s,
+          ),
+        };
+      }),
+    );
+  }
+
+  function updateSubDeload(localId: string, subExerciseId: string, fields: PrescriptionFields) {
+    setEntries((prev) =>
+      prev.map((e) => {
+        if (e.localId !== localId) return e;
+        return {
+          ...e,
+          substitutes: e.substitutes.map((s) =>
+            s.exercise.id === subExerciseId ? { ...s, deload: fields } : s,
+          ),
+        };
+      }),
+    );
+  }
+
   // -----------------------------------------------------------------------
   // Save
   // -----------------------------------------------------------------------
@@ -416,6 +558,7 @@ export default function TemplateBuilder() {
         // Normal week
         const normalId = uuidv4();
         const normalFields = {
+          id: normalId,
           exercise_id: entry.exercise.id,
           week_type: "normal" as const,
           order: index,
@@ -432,8 +575,8 @@ export default function TemplateBuilder() {
         };
 
         dexieTemplateExercises.push({
-          id: normalId,
           template_id: tplId,
+          parent_exercise_id: null,
           sync_status: "pending",
           ...normalFields,
         });
@@ -443,6 +586,7 @@ export default function TemplateBuilder() {
         // Deload week
         const deloadId = uuidv4();
         const deloadFields = {
+          id: deloadId,
           exercise_id: entry.exercise.id,
           week_type: "deload" as const,
           order: index,
@@ -459,13 +603,57 @@ export default function TemplateBuilder() {
         };
 
         dexieTemplateExercises.push({
-          id: deloadId,
           template_id: tplId,
+          parent_exercise_id: null,
           sync_status: "pending",
           ...deloadFields,
         });
 
         apiTemplateExercises.push(deloadFields);
+
+        // Substitute TEs — saved with parent_exercise_id pointing to main's normal TE
+        for (const sub of entry.substitutes) {
+          const subNormalId = uuidv4();
+          dexieTemplateExercises.push({
+            id: subNormalId,
+            template_id: tplId,
+            exercise_id: sub.exercise.id,
+            week_type: "normal",
+            order: index,
+            working_sets: sub.normal.working_sets,
+            min_reps: sub.normal.min_reps,
+            max_reps: sub.normal.max_reps,
+            early_set_rpe_min: sub.normal.early_set_rpe_min,
+            early_set_rpe_max: sub.normal.early_set_rpe_max,
+            last_set_rpe_min: sub.normal.last_set_rpe_min,
+            last_set_rpe_max: sub.normal.last_set_rpe_max,
+            rest_period: sub.normal.rest_period,
+            intensity_technique: sub.normal.intensity_technique || null,
+            warmup_sets: sub.normal.warmup_sets,
+            parent_exercise_id: normalId,
+            sync_status: "pending",
+          });
+
+          dexieTemplateExercises.push({
+            id: uuidv4(),
+            template_id: tplId,
+            exercise_id: sub.exercise.id,
+            week_type: "deload",
+            order: index,
+            working_sets: sub.deload.working_sets,
+            min_reps: sub.deload.min_reps,
+            max_reps: sub.deload.max_reps,
+            early_set_rpe_min: sub.deload.early_set_rpe_min,
+            early_set_rpe_max: sub.deload.early_set_rpe_max,
+            last_set_rpe_min: sub.deload.last_set_rpe_min,
+            last_set_rpe_max: sub.deload.last_set_rpe_max,
+            rest_period: sub.deload.rest_period,
+            intensity_technique: sub.deload.intensity_technique || null,
+            warmup_sets: sub.deload.warmup_sets,
+            parent_exercise_id: normalId,
+            sync_status: "pending",
+          });
+        }
       });
 
       // Write to Dexie FIRST (offline-first)
@@ -500,6 +688,7 @@ export default function TemplateBuilder() {
       if (navigator.onLine) {
         try {
           const payload: TemplateCreate = {
+            id: tplId,
             name: name.trim(),
             template_exercises: apiTemplateExercises,
           };
@@ -612,6 +801,89 @@ export default function TemplateBuilder() {
               </CardHeader>
 
               <CardContent>
+                {/* Exercise details */}
+                <div className="flex flex-col gap-2 mb-4">
+                  <div>
+                    <Label className="text-xs">YouTube URL</Label>
+                    <Input
+                      value={entry.exercise.youtube_url ?? ""}
+                      placeholder="https://youtube.com/watch?v=..."
+                      onChange={(e) => updateExerciseField(entry.localId, "youtube_url", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Notes</Label>
+                    <textarea
+                      className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-h-[60px] resize-y"
+                      value={entry.exercise.notes ?? ""}
+                      placeholder="Form cues, tips, etc."
+                      onChange={(e) => updateExerciseField(entry.localId, "notes", e.target.value)}
+                      rows={2}
+                    />
+                  </div>
+                </div>
+
+                {/* Substitutes */}
+                <div className="flex flex-col gap-3 mb-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Substitutes ({entry.substitutes.length}/2)
+                    </p>
+                    {entry.substitutes.length < 2 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => setSubPickerForEntry(entry.localId)}
+                        type="button"
+                      >
+                        + Add Substitute
+                      </Button>
+                    )}
+                  </div>
+                  {entry.substitutes.map((sub) => (
+                    <div key={sub.exercise.id} className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="shrink-0 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-600 dark:text-amber-400">
+                            SUB
+                          </span>
+                          <p className="text-sm font-medium truncate">{sub.exercise.name}</p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          className="shrink-0"
+                          onClick={() => handleRemoveSubstitute(entry.localId, sub.exercise.id)}
+                          aria-label={`Remove ${sub.exercise.name}`}
+                        >
+                          &#10005;
+                        </Button>
+                      </div>
+                      {sub.exercise.equipment && (
+                        <p className="text-[11px] text-muted-foreground -mt-2">{sub.exercise.equipment}</p>
+                      )}
+                      <div className="flex gap-4">
+                        <PrescriptionColumn
+                          label="Normal Week"
+                          fields={sub.normal}
+                          onChange={(f) => updateSubNormal(entry.localId, sub.exercise.id, f)}
+                        />
+                        <PrescriptionColumn
+                          label="Deload Week"
+                          fields={sub.deload}
+                          onChange={(f) => updateSubDeload(entry.localId, sub.exercise.id, f)}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  {entry.substitutes.length === 0 && (
+                    <p className="text-xs text-muted-foreground italic">
+                      No substitutes — swipe will be disabled during workout
+                    </p>
+                  )}
+                </div>
+
                 <div className="flex gap-4">
                   <PrescriptionColumn
                     label="Normal Week"
@@ -656,7 +928,23 @@ export default function TemplateBuilder() {
           </DialogHeader>
           <ExercisePicker
             onSelect={handleAddExercise}
-            excludeIds={entries.map((e) => e.exercise.id)}
+            excludeIds={allUsedExerciseIds}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Substitute picker dialog */}
+      <Dialog
+        open={subPickerForEntry !== null}
+        onOpenChange={(v) => !v && setSubPickerForEntry(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Substitute</DialogTitle>
+          </DialogHeader>
+          <ExercisePicker
+            onSelect={handleAddSubstitute}
+            excludeIds={allUsedExerciseIds}
           />
         </DialogContent>
       </Dialog>

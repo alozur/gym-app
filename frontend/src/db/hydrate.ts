@@ -86,6 +86,7 @@ export async function hydrateFromApi(userId: string): Promise<void> {
           rest_period: te.rest_period,
           intensity_technique: te.intensity_technique,
           warmup_sets: te.warmup_sets,
+          parent_exercise_id: null,
           sync_status: "synced" as const,
         })),
       );
