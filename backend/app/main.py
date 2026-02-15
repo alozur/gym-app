@@ -1,3 +1,4 @@
+import sqlalchemy
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -18,6 +19,9 @@ from app.seed import seed_exercises
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
+        await conn.execute(
+            sqlalchemy.text(f"CREATE SCHEMA IF NOT EXISTS {settings.DB_SCHEMA}")
+        )
         await conn.run_sync(Base.metadata.create_all)
     async with async_session() as db:
         await seed_exercises(db)
