@@ -8,7 +8,7 @@ import {
 } from "@/db/index";
 import { useAuthContext } from "@/context/AuthContext";
 import { api } from "@/api/client";
-import type { ProgramCreate, ProgramDetailResponse } from "@/types";
+import type { ProgramCreate } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

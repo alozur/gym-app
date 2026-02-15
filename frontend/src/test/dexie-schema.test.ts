@@ -119,6 +119,7 @@ describe("GymTrackerDB schema", () => {
       rest_period: "2-3 mins",
       intensity_technique: null,
       warmup_sets: 2,
+      parent_exercise_id: null,
       sync_status: "synced",
     };
 
