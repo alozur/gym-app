@@ -112,5 +112,5 @@ async def test_logout(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_protected_route_without_token(client: AsyncClient):
     """Accessing a protected endpoint without auth should return 401."""
-    response = await client.get("/api/exercises/")
+    response = await client.get("/api/exercises")
     assert response.status_code == 401

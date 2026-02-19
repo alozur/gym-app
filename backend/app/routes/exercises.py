@@ -17,7 +17,7 @@ from app.schemas import (
 router = APIRouter(prefix="/api/exercises", tags=["exercises"])
 
 
-@router.get("/", response_model=list[ExerciseResponse])
+@router.get("", response_model=list[ExerciseResponse])
 async def list_exercises(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -42,7 +42,7 @@ async def list_exercises(
 
 
 @router.post(
-    "/", response_model=ExerciseResponse, status_code=status.HTTP_201_CREATED
+    "", response_model=ExerciseResponse, status_code=status.HTTP_201_CREATED
 )
 async def create_exercise(
     body: ExerciseCreate,

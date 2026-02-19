@@ -6,7 +6,7 @@ from httpx import AsyncClient
 
 async def _get_exercise_id_by_name(client: AsyncClient, name: str) -> str:
     """Helper to look up an exercise ID by name."""
-    resp = await client.get("/api/exercises/")
+    resp = await client.get("/api/exercises")
     exercises = resp.json()
     exercise = next(e for e in exercises if e["name"] == name)
     return exercise["id"]
@@ -43,7 +43,7 @@ async def test_create_template_with_prescriptions(auth_seeded_client: AsyncClien
         ],
     }
 
-    response = await auth_seeded_client.post("/api/templates/", json=payload)
+    response = await auth_seeded_client.post("/api/templates", json=payload)
     assert response.status_code == 201
     data = response.json()
     assert data["name"] == "Push Day"
@@ -61,7 +61,7 @@ async def test_list_templates(auth_seeded_client: AsyncClient):
 
     # Create a template first
     await auth_seeded_client.post(
-        "/api/templates/",
+        "/api/templates",
         json={
             "name": "Leg Day",
             "template_exercises": [
@@ -71,7 +71,7 @@ async def test_list_templates(auth_seeded_client: AsyncClient):
     )
 
     # List templates
-    response = await auth_seeded_client.get("/api/templates/")
+    response = await auth_seeded_client.get("/api/templates")
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
@@ -86,7 +86,7 @@ async def test_get_template_detail(auth_seeded_client: AsyncClient):
 
     # Create template with both normal and deload
     create_resp = await auth_seeded_client.post(
-        "/api/templates/",
+        "/api/templates",
         json={
             "name": "Pull Day",
             "template_exercises": [

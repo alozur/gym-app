@@ -32,7 +32,7 @@ from app.schemas import (
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
 
-@router.get("/", response_model=list[SessionResponse])
+@router.get("", response_model=list[SessionResponse])
 async def list_sessions(
     year_week: Optional[str] = Query(None, description="Filter by year-week, e.g. 2025-27"),
     week_type: Optional[str] = Query(None, description="Filter by week type: normal or deload"),
@@ -54,7 +54,7 @@ async def list_sessions(
 
 
 @router.post(
-    "/", response_model=SessionResponse, status_code=status.HTTP_201_CREATED
+    "", response_model=SessionResponse, status_code=status.HTTP_201_CREATED
 )
 async def create_session(
     body: SessionCreate,

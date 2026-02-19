@@ -6,7 +6,7 @@ from httpx import AsyncClient
 
 async def _get_exercise_id_by_name(client: AsyncClient, name: str) -> str:
     """Helper to look up an exercise ID by name."""
-    resp = await client.get("/api/exercises/")
+    resp = await client.get("/api/exercises")
     exercises = resp.json()
     exercise = next(e for e in exercises if e["name"] == name)
     return exercise["id"]
@@ -34,7 +34,7 @@ def _make_template_exercise(exercise_id: str, week_type: str, order: int) -> dic
 async def _create_template(client: AsyncClient, name: str, exercise_id: str) -> str:
     """Create a template and return its ID."""
     resp = await client.post(
-        "/api/templates/",
+        "/api/templates",
         json={
             "name": name,
             "template_exercises": [
@@ -54,7 +54,7 @@ async def test_create_program_with_routines(auth_seeded_client: AsyncClient):
     t2 = await _create_template(auth_seeded_client, "Pull Day", exercise_id)
 
     resp = await auth_seeded_client.post(
-        "/api/programs/",
+        "/api/programs",
         json={
             "name": "PPL Program",
             "deload_every_n_weeks": 4,
@@ -81,14 +81,14 @@ async def test_list_programs(auth_seeded_client: AsyncClient):
     t1 = await _create_template(auth_seeded_client, "Leg Day", exercise_id)
 
     await auth_seeded_client.post(
-        "/api/programs/",
+        "/api/programs",
         json={
             "name": "Legs Only",
             "routines": [{"template_id": t1, "order": 0}],
         },
     )
 
-    resp = await auth_seeded_client.get("/api/programs/")
+    resp = await auth_seeded_client.get("/api/programs")
     assert resp.status_code == 200
     data = resp.json()
     assert isinstance(data, list)
@@ -101,7 +101,7 @@ async def test_get_program_detail(auth_seeded_client: AsyncClient):
     t1 = await _create_template(auth_seeded_client, "DL Day", exercise_id)
 
     create_resp = await auth_seeded_client.post(
-        "/api/programs/",
+        "/api/programs",
         json={
             "name": "Deadlift Focus",
             "routines": [{"template_id": t1, "order": 0}],
@@ -124,7 +124,7 @@ async def test_update_program(auth_seeded_client: AsyncClient):
     t2 = await _create_template(auth_seeded_client, "Day B", exercise_id)
 
     create_resp = await auth_seeded_client.post(
-        "/api/programs/",
+        "/api/programs",
         json={
             "name": "Old Name",
             "routines": [{"template_id": t1, "order": 0}],
@@ -156,7 +156,7 @@ async def test_delete_program(auth_seeded_client: AsyncClient):
     t1 = await _create_template(auth_seeded_client, "Temp", exercise_id)
 
     create_resp = await auth_seeded_client.post(
-        "/api/programs/",
+        "/api/programs",
         json={"name": "To Delete", "routines": [{"template_id": t1, "order": 0}]},
     )
     program_id = create_resp.json()["id"]
@@ -176,7 +176,7 @@ async def test_activate_deactivate_program(auth_seeded_client: AsyncClient):
     t1 = await _create_template(auth_seeded_client, "Activate Test", exercise_id)
 
     create_resp = await auth_seeded_client.post(
-        "/api/programs/",
+        "/api/programs",
         json={"name": "Activate Me", "routines": [{"template_id": t1, "order": 0}]},
     )
     program_id = create_resp.json()["id"]
@@ -203,7 +203,7 @@ async def test_today_endpoint(auth_seeded_client: AsyncClient):
     t2 = await _create_template(auth_seeded_client, "Today Pull", exercise_id)
 
     create_resp = await auth_seeded_client.post(
-        "/api/programs/",
+        "/api/programs",
         json={
             "name": "Today Program",
             "deload_every_n_weeks": 6,
@@ -244,7 +244,7 @@ async def test_session_finish_advances_rotation(auth_seeded_client: AsyncClient)
     t2 = await _create_template(auth_seeded_client, "Rot B", exercise_id)
 
     create_resp = await auth_seeded_client.post(
-        "/api/programs/",
+        "/api/programs",
         json={
             "name": "Rotation Test",
             "deload_every_n_weeks": 6,
@@ -260,7 +260,7 @@ async def test_session_finish_advances_rotation(auth_seeded_client: AsyncClient)
 
     # Create a session linked to the program
     session_resp = await auth_seeded_client.post(
-        "/api/sessions/",
+        "/api/sessions",
         json={
             "template_id": t1,
             "program_id": program_id,
@@ -287,7 +287,7 @@ async def test_session_finish_advances_rotation(auth_seeded_client: AsyncClient)
 
     # Finish another session to wrap around
     session2_resp = await auth_seeded_client.post(
-        "/api/sessions/",
+        "/api/sessions",
         json={
             "template_id": t2,
             "program_id": program_id,
@@ -316,7 +316,7 @@ async def test_deload_detection(auth_seeded_client: AsyncClient):
     # Create program with deload_every_n_weeks=2 for quick testing
     # (1 routine, so each session = 1 week)
     create_resp = await auth_seeded_client.post(
-        "/api/programs/",
+        "/api/programs",
         json={
             "name": "Deload Program",
             "deload_every_n_weeks": 2,
@@ -332,7 +332,7 @@ async def test_deload_detection(auth_seeded_client: AsyncClient):
 
     # Complete one session -> weeks_completed=1
     s1 = await auth_seeded_client.post(
-        "/api/sessions/",
+        "/api/sessions",
         json={
             "template_id": t1,
             "program_id": program_id,

@@ -13,7 +13,7 @@ from app.schemas import SyncRequest, SyncResponse
 router = APIRouter(prefix="/api/sync", tags=["sync"])
 
 
-@router.post("/", response_model=SyncResponse)
+@router.post("", response_model=SyncResponse)
 async def sync_data(
     body: SyncRequest,
     db: AsyncSession = Depends(get_db),

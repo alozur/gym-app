@@ -6,7 +6,7 @@ from httpx import AsyncClient
 
 @pytest.mark.asyncio
 async def test_list_exercises(auth_seeded_client: AsyncClient):
-    response = await auth_seeded_client.get("/api/exercises/")
+    response = await auth_seeded_client.get("/api/exercises")
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
@@ -20,7 +20,7 @@ async def test_list_exercises(auth_seeded_client: AsyncClient):
 @pytest.mark.asyncio
 async def test_create_custom_exercise(auth_client: AsyncClient):
     response = await auth_client.post(
-        "/api/exercises/",
+        "/api/exercises",
         json={
             "name": "My Custom Exercise",
             "muscle_group": "Chest",
@@ -35,7 +35,7 @@ async def test_create_custom_exercise(auth_client: AsyncClient):
     assert data["equipment"] == "Dumbbell"
 
     # Verify it appears in listing
-    list_resp = await auth_client.get("/api/exercises/")
+    list_resp = await auth_client.get("/api/exercises")
     assert list_resp.status_code == 200
     names = [e["name"] for e in list_resp.json()]
     assert "My Custom Exercise" in names
@@ -44,7 +44,7 @@ async def test_create_custom_exercise(auth_client: AsyncClient):
 @pytest.mark.asyncio
 async def test_get_exercise_with_substitutions(auth_seeded_client: AsyncClient):
     # Get all exercises to find Lying Leg Curl
-    list_resp = await auth_seeded_client.get("/api/exercises/")
+    list_resp = await auth_seeded_client.get("/api/exercises")
     exercises = list_resp.json()
     lying_leg_curl = next(e for e in exercises if e["name"] == "Lying Leg Curl")
 

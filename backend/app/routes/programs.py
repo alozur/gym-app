@@ -28,7 +28,7 @@ from app.schemas import (
 router = APIRouter(prefix="/api/programs", tags=["programs"])
 
 
-@router.get("/", response_model=list[ProgramResponse])
+@router.get("", response_model=list[ProgramResponse])
 async def list_programs(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -44,7 +44,7 @@ async def list_programs(
 
 
 @router.post(
-    "/", response_model=ProgramDetailResponse, status_code=status.HTTP_201_CREATED
+    "", response_model=ProgramDetailResponse, status_code=status.HTTP_201_CREATED
 )
 async def create_program(
     body: ProgramCreate,

@@ -5,7 +5,7 @@ from httpx import AsyncClient
 
 
 async def _get_exercise_id_by_name(client: AsyncClient, name: str) -> str:
-    resp = await client.get("/api/exercises/")
+    resp = await client.get("/api/exercises")
     exercises = resp.json()
     exercise = next(e for e in exercises if e["name"] == name)
     return exercise["id"]
@@ -14,7 +14,7 @@ async def _get_exercise_id_by_name(client: AsyncClient, name: str) -> str:
 async def _create_session(client: AsyncClient, week_type: str = "normal") -> dict:
     """Helper to create a workout session."""
     response = await client.post(
-        "/api/sessions/",
+        "/api/sessions",
         json={"week_type": week_type, "year_week": "2025-27"},
     )
     assert response.status_code == 201
@@ -24,7 +24,7 @@ async def _create_session(client: AsyncClient, week_type: str = "normal") -> dic
 @pytest.mark.asyncio
 async def test_create_session(auth_seeded_client: AsyncClient):
     response = await auth_seeded_client.post(
-        "/api/sessions/",
+        "/api/sessions",
         json={"week_type": "normal", "year_week": "2025-27"},
     )
     assert response.status_code == 201

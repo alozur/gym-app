@@ -5,7 +5,7 @@ from httpx import AsyncClient
 
 
 async def _get_exercise_id_by_name(client: AsyncClient, name: str) -> str:
-    resp = await client.get("/api/exercises/")
+    resp = await client.get("/api/exercises")
     exercises = resp.json()
     exercise = next(e for e in exercises if e["name"] == name)
     return exercise["id"]
@@ -18,7 +18,7 @@ async def test_exercise_progress_updated_on_set_log(auth_seeded_client: AsyncCli
 
     # Create a session with year_week (required for progress tracking)
     session_resp = await auth_seeded_client.post(
-        "/api/sessions/",
+        "/api/sessions",
         json={"week_type": "normal", "year_week": "2025-27"},
     )
     session = session_resp.json()

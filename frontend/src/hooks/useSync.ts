@@ -123,7 +123,7 @@ export function useSync(): UseSyncReturn {
         })),
       };
 
-      const result = await api.post<SyncResponse>("/sync/", payload);
+      const result = await api.post<SyncResponse>("/sync", payload);
 
       // Mark synced sessions
       if (result.synced_sessions.length > 0) {
