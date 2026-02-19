@@ -6,9 +6,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_current_user, get_db
 from app.models import ExerciseProgress, User
-from app.schemas import ProgressResponse
+from app.schemas import ProgressDetailResponse, ProgressResponse
 
 router = APIRouter(prefix="/api/progress", tags=["progress"])
+
+
+@router.get("", response_model=list[ProgressDetailResponse])
+async def list_all_progress(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[ExerciseProgress]:
+    """Get all exercise progress records for the current user."""
+    result = await db.execute(
+        select(ExerciseProgress)
+        .where(ExerciseProgress.user_id == current_user.id)
+        .order_by(ExerciseProgress.year_week)
+    )
+    return list(result.scalars().all())
 
 
 @router.get(

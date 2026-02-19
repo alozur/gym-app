@@ -266,6 +266,16 @@ class ProgressResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ProgressDetailResponse(BaseModel):
+    id: str
+    exercise_id: str
+    year_week: str
+    max_weight: Decimal
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class VolumeResponse(BaseModel):
     year_week: str
     muscle_group: str

@@ -10,6 +10,9 @@ import type {
   TemplateDetailResponse,
   ProgramResponse,
   ProgramDetailResponse,
+  SessionResponse,
+  SessionDetailResponse,
+  ProgressDetailResponse,
 } from "@/types";
 
 export async function hydrateFromApi(userId: string): Promise<void> {
@@ -134,6 +137,68 @@ export async function hydrateFromApi(userId: string): Promise<void> {
       if (routineRecords.length > 0) {
         await db.programRoutines.bulkPut(routineRecords);
       }
+    }
+
+    // Fetch sessions and their sets
+    const sessions = await api.get<SessionResponse[]>("/sessions");
+    if (sessions.length > 0) {
+      await db.workoutSessions.bulkPut(
+        sessions.map((s) => ({
+          id: s.id,
+          user_id: userId,
+          template_id: s.template_id,
+          year_week: s.year_week,
+          week_type: s.week_type as "normal" | "deload",
+          started_at: s.started_at,
+          finished_at: s.finished_at,
+          notes: s.notes,
+          program_id: s.program_id,
+          sync_status: "synced" as const,
+        })),
+      );
+
+      // Fetch sets for each session
+      const allSessionDetails = await Promise.all(
+        sessions.map((s) =>
+          api.get<SessionDetailResponse>(`/sessions/${s.id}`),
+        ),
+      );
+
+      const setRecords = allSessionDetails.flatMap((sd) =>
+        sd.sets.map((set) => ({
+          id: set.id,
+          session_id: sd.id,
+          exercise_id: set.exercise_id,
+          set_type: set.set_type as "warmup" | "working",
+          set_number: set.set_number,
+          reps: set.reps,
+          weight: set.weight,
+          rpe: set.rpe,
+          notes: set.notes,
+          created_at: set.created_at,
+          sync_status: "synced" as const,
+        })),
+      );
+
+      if (setRecords.length > 0) {
+        await db.workoutSets.bulkPut(setRecords);
+      }
+    }
+
+    // Fetch exercise progress
+    const progress = await api.get<ProgressDetailResponse[]>("/progress");
+    if (progress.length > 0) {
+      await db.exerciseProgress.bulkPut(
+        progress.map((p) => ({
+          id: p.id,
+          user_id: userId,
+          exercise_id: p.exercise_id,
+          year_week: p.year_week,
+          max_weight: p.max_weight,
+          created_at: p.created_at,
+          sync_status: "synced" as const,
+        })),
+      );
     }
   } catch {
     // Hydration is best-effort — data will load from API on individual pages

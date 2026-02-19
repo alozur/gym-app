@@ -268,6 +268,14 @@ export interface ProgressResponse {
   max_weight: number;
 }
 
+export interface ProgressDetailResponse {
+  id: string;
+  exercise_id: string;
+  year_week: string;
+  max_weight: number;
+  created_at: string;
+}
+
 export interface VolumeResponse {
   year_week: string;
   muscle_group: string;
