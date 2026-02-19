@@ -33,7 +33,7 @@ def _make_template_exercise(exercise_id: str, week_type: str, order: int) -> dic
 
 @pytest.mark.asyncio
 async def test_create_template_with_prescriptions(auth_seeded_client: AsyncClient):
-    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Bench Press")
+    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Barbell Bench Press")
 
     payload = {
         "name": "Push Day",
@@ -57,7 +57,7 @@ async def test_create_template_with_prescriptions(auth_seeded_client: AsyncClien
 
 @pytest.mark.asyncio
 async def test_list_templates(auth_seeded_client: AsyncClient):
-    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Squat")
+    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Smith Machine Squat")
 
     # Create a template first
     await auth_seeded_client.post(
@@ -82,7 +82,7 @@ async def test_list_templates(auth_seeded_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_get_template_detail(auth_seeded_client: AsyncClient):
-    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Deadlift")
+    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Barbell RDL")
 
     # Create template with both normal and deload
     create_resp = await auth_seeded_client.post(

@@ -14,7 +14,7 @@ async def _get_exercise_id_by_name(client: AsyncClient, name: str) -> str:
 @pytest.mark.asyncio
 async def test_exercise_progress_updated_on_set_log(auth_seeded_client: AsyncClient):
     """Logging a working set should create/update the exercise progress record."""
-    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Bench Press")
+    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Barbell Bench Press")
 
     # Create a session with year_week (required for progress tracking)
     session_resp = await auth_seeded_client.post(

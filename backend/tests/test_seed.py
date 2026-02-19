@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models import Exercise, ExerciseSubstitution
-from app.seed import seed_exercises
+from app.seed import exercises_data, seed_exercises
 
 
 @pytest.mark.asyncio
@@ -16,16 +16,16 @@ async def test_seed_populates_exercises(db_session: AsyncSession):
     result = await db_session.execute(select(Exercise).where(Exercise.user_id.is_(None)))
     exercises = result.scalars().all()
 
-    assert len(exercises) == 19
+    assert len(exercises) == len(exercises_data)
 
     names = {e.name for e in exercises}
     assert "Lying Leg Curl" in names
-    assert "Bench Press" in names
-    assert "Squat" in names
-    assert "Deadlift" in names
-    assert "Overhead Press" in names
-    assert "Barbell Row" in names
-    assert "Barbell Curl" in names
+    assert "Barbell Bench Press" in names
+    assert "Smith Machine Squat" in names
+    assert "Barbell RDL" in names
+    assert "Machine Shoulder Press" in names
+    assert "Pendlay Deficit Row" in names
+    assert "Bayesian Cable Curl" in names
 
 
 @pytest.mark.asyncio
@@ -61,4 +61,4 @@ async def test_seed_is_idempotent(db_session: AsyncSession):
 
     result = await db_session.execute(select(Exercise).where(Exercise.user_id.is_(None)))
     exercises = result.scalars().all()
-    assert len(exercises) == 19
+    assert len(exercises) == len(exercises_data)

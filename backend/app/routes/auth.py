@@ -11,6 +11,7 @@ from app.auth import (
 )
 from app.dependencies import get_current_user, get_db
 from app.models import User
+from app.seed import clone_default_templates
 from app.schemas import (
     LoginRequest,
     MessageResponse,
@@ -45,6 +46,9 @@ async def register(
     db.add(user)
     await db.commit()
     await db.refresh(user)
+
+    await clone_default_templates(db, user.id)
+    await db.commit()
 
     return TokenResponse(
         access_token=create_access_token(user.id),

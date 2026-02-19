@@ -49,7 +49,7 @@ async def _create_template(client: AsyncClient, name: str, exercise_id: str) -> 
 
 @pytest.mark.asyncio
 async def test_create_program_with_routines(auth_seeded_client: AsyncClient):
-    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Bench Press")
+    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Barbell Bench Press")
     t1 = await _create_template(auth_seeded_client, "Push Day", exercise_id)
     t2 = await _create_template(auth_seeded_client, "Pull Day", exercise_id)
 
@@ -77,7 +77,7 @@ async def test_create_program_with_routines(auth_seeded_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_list_programs(auth_seeded_client: AsyncClient):
-    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Squat")
+    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Smith Machine Squat")
     t1 = await _create_template(auth_seeded_client, "Leg Day", exercise_id)
 
     await auth_seeded_client.post(
@@ -97,7 +97,7 @@ async def test_list_programs(auth_seeded_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_get_program_detail(auth_seeded_client: AsyncClient):
-    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Deadlift")
+    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Barbell RDL")
     t1 = await _create_template(auth_seeded_client, "DL Day", exercise_id)
 
     create_resp = await auth_seeded_client.post(
@@ -119,7 +119,7 @@ async def test_get_program_detail(auth_seeded_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_update_program(auth_seeded_client: AsyncClient):
-    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Bench Press")
+    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Barbell Bench Press")
     t1 = await _create_template(auth_seeded_client, "Day A", exercise_id)
     t2 = await _create_template(auth_seeded_client, "Day B", exercise_id)
 
@@ -152,7 +152,7 @@ async def test_update_program(auth_seeded_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_delete_program(auth_seeded_client: AsyncClient):
-    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Squat")
+    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Smith Machine Squat")
     t1 = await _create_template(auth_seeded_client, "Temp", exercise_id)
 
     create_resp = await auth_seeded_client.post(
@@ -172,7 +172,7 @@ async def test_delete_program(auth_seeded_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_activate_deactivate_program(auth_seeded_client: AsyncClient):
-    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Bench Press")
+    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Barbell Bench Press")
     t1 = await _create_template(auth_seeded_client, "Activate Test", exercise_id)
 
     create_resp = await auth_seeded_client.post(
@@ -198,7 +198,7 @@ async def test_activate_deactivate_program(auth_seeded_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_today_endpoint(auth_seeded_client: AsyncClient):
-    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Bench Press")
+    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Barbell Bench Press")
     t1 = await _create_template(auth_seeded_client, "Today Push", exercise_id)
     t2 = await _create_template(auth_seeded_client, "Today Pull", exercise_id)
 
@@ -239,7 +239,7 @@ async def test_today_no_active_program(auth_seeded_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_session_finish_advances_rotation(auth_seeded_client: AsyncClient):
-    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Bench Press")
+    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Barbell Bench Press")
     t1 = await _create_template(auth_seeded_client, "Rot A", exercise_id)
     t2 = await _create_template(auth_seeded_client, "Rot B", exercise_id)
 
@@ -310,7 +310,7 @@ async def test_session_finish_advances_rotation(auth_seeded_client: AsyncClient)
 @pytest.mark.asyncio
 async def test_deload_detection(auth_seeded_client: AsyncClient):
     """After enough weeks, deload should be detected."""
-    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Squat")
+    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Smith Machine Squat")
     t1 = await _create_template(auth_seeded_client, "Deload Test", exercise_id)
 
     # Create program with deload_every_n_weeks=2 for quick testing

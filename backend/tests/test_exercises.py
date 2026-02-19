@@ -10,11 +10,11 @@ async def test_list_exercises(auth_seeded_client: AsyncClient):
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
-    assert len(data) >= 19  # 19 seeded exercises
+    assert len(data) >= 19  # seeded exercises
     names = [e["name"] for e in data]
     assert "Lying Leg Curl" in names
-    assert "Bench Press" in names
-    assert "Squat" in names
+    assert "Barbell Bench Press" in names
+    assert "Smith Machine Squat" in names
 
 
 @pytest.mark.asyncio
