@@ -18,13 +18,21 @@ from app.seed import seed_exercises
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.execute(
-            sqlalchemy.text(f"CREATE SCHEMA IF NOT EXISTS {settings.DB_SCHEMA}")
-        )
-        await conn.run_sync(Base.metadata.create_all)
-    async with async_session() as db:
-        await seed_exercises(db)
+    try:
+        print(f"[LIFESPAN] Connecting to DB, schema={settings.DB_SCHEMA}")
+        async with engine.begin() as conn:
+            await conn.execute(
+                sqlalchemy.text(f"CREATE SCHEMA IF NOT EXISTS {settings.DB_SCHEMA}")
+            )
+            print("[LIFESPAN] Schema created/verified")
+            await conn.run_sync(Base.metadata.create_all)
+            print("[LIFESPAN] Tables created")
+        async with async_session() as db:
+            await seed_exercises(db)
+            print("[LIFESPAN] Seed complete")
+    except Exception as e:
+        print(f"[LIFESPAN] ERROR: {e}")
+        raise
     yield
 
 
