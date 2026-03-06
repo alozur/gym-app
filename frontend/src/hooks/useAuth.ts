@@ -77,12 +77,7 @@ export function useAuth(): UseAuthReturn {
           password,
           display_name: displayName,
         };
-        await api.post<UserResponse>("/auth/register", body);
-
-        const tokens = await api.post<TokenResponse>("/auth/login", {
-          email,
-          password,
-        });
+        const tokens = await api.post<TokenResponse>("/auth/register", body);
         setTokens(tokens);
 
         const user = await api.get<UserResponse>("/auth/me");

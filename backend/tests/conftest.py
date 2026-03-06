@@ -6,18 +6,18 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.database import Base
+from app.database import Base, settings
 from app.dependencies import get_db
 from app.main import app
 from app.seed import seed_exercises
 
-# Use SQLite in-memory for tests — translate "public" schema to None for SQLite
+# Use SQLite in-memory for tests — translate the configured schema to None for SQLite
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 engine = create_async_engine(
     TEST_DATABASE_URL,
     echo=False,
-    execution_options={"schema_translate_map": {"public": None}},
+    execution_options={"schema_translate_map": {settings.DB_SCHEMA: None}},
 )
 TestSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 

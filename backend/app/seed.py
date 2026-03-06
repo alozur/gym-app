@@ -3,7 +3,14 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Exercise, ExerciseSubstitution, TemplateExercise, WorkoutTemplate
+from app.models import (
+    Exercise,
+    ExerciseSubstitution,
+    Program,
+    ProgramRoutine,
+    TemplateExercise,
+    WorkoutTemplate,
+)
 
 exercises_data = [
     # ── Upper Day ──
@@ -782,10 +789,13 @@ async def clone_default_templates(db: AsyncSession, user_id: str | UUID) -> None
         e.name: e.id for e in result.scalars().all()
     }
 
+    template_ids: list[str] = []
+
     for tpl_data in templates_data:
         template = WorkoutTemplate(user_id=str(user_id), name=tpl_data["name"])
         db.add(template)
         await db.flush()  # populate template.id
+        template_ids.append(template.id)
 
         for week_type in ("normal", "deload"):
             for ex in tpl_data[week_type]:
@@ -814,5 +824,22 @@ async def clone_default_templates(db: AsyncSession, user_id: str | UUID) -> None
                     warmup_sets=warmup_sets,
                 )
                 db.add(te)
+
+    # Create the default program with all 5 templates as routines
+    program = Program(
+        user_id=str(user_id),
+        name="Jeff Nippard 5 Day Program",
+        deload_every_n_weeks=6,
+        is_active=True,
+    )
+    db.add(program)
+    await db.flush()
+
+    for order, tid in enumerate(template_ids):
+        db.add(ProgramRoutine(
+            program_id=program.id,
+            template_id=tid,
+            order=order,
+        ))
 
     await db.flush()

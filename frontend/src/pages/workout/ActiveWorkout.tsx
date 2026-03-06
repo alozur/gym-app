@@ -42,6 +42,8 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
   const [isLoading, setIsLoading] = useState(true);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
+  const [unloggedExercises, setUnloggedExercises] = useState<string[]>([]);
+  const [showUnloggedDialog, setShowUnloggedDialog] = useState(false);
 
   const existingExerciseIds = useMemo(
     () => exercises.map((e) => e.exerciseId),
@@ -331,7 +333,79 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
     );
   }
 
-  async function handleFinishWorkout() {
+  /** Auto-log any unsaved sets that have valid weight+reps filled in. */
+  async function autoLogUnsavedSets() {
+    for (const entry of exercises) {
+      const unsaved = entry.workingSets.filter((s) => {
+        if (s.saved) return false;
+        const w = parseFloat(s.weight);
+        const r = parseInt(s.reps, 10);
+        return !isNaN(w) && w > 0 && !isNaN(r) && r > 0;
+      });
+
+      for (const s of unsaved) {
+        const record: import("@/db/index").DbWorkoutSet = {
+          id: s.id,
+          session_id: session.id,
+          exercise_id: entry.exerciseId,
+          set_type: "working",
+          set_number: s.setNumber,
+          reps: parseInt(s.reps, 10),
+          weight: parseFloat(s.weight),
+          rpe: s.rpe ? parseFloat(s.rpe) : null,
+          notes: null,
+          created_at: new Date().toISOString(),
+          sync_status: SYNC_STATUS.pending,
+        };
+        await db.workoutSets.put(record);
+      }
+
+      // Mark them saved in state
+      if (unsaved.length > 0) {
+        const savedIds = new Set(unsaved.map((s) => s.id));
+        const updated = entry.workingSets.map((s) =>
+          savedIds.has(s.id) ? { ...s, saved: true } : s
+        );
+        setExercises((prev) =>
+          prev.map((e) =>
+            e.exerciseId === entry.exerciseId
+              ? { ...e, workingSets: updated }
+              : e
+          )
+        );
+      }
+    }
+  }
+
+  /** Check which exercises have zero loggable data. */
+  function getEmptyExerciseNames(): string[] {
+    return exercises
+      .filter((entry) => {
+        const hasAnySaved = entry.workingSets.some((s) => s.saved);
+        const hasAnyFilled = entry.workingSets.some((s) => {
+          const w = parseFloat(s.weight);
+          const r = parseInt(s.reps, 10);
+          return !isNaN(w) && w > 0 && !isNaN(r) && r > 0;
+        });
+        return !hasAnySaved && !hasAnyFilled;
+      })
+      .map((e) => e.exerciseName);
+  }
+
+  async function handleFinishWorkout(skipWarning = false) {
+    // Auto-log any filled but unsaved sets first
+    await autoLogUnsavedSets();
+
+    // Check for completely empty exercises
+    if (!skipWarning) {
+      const empty = getEmptyExerciseNames();
+      if (empty.length > 0) {
+        setUnloggedExercises(empty);
+        setShowUnloggedDialog(true);
+        return;
+      }
+    }
+
     setIsFinishing(true);
     const finishedAt = new Date().toISOString();
 
@@ -496,6 +570,45 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
             onSelect={handleAddExercise}
             excludeIds={existingExerciseIds}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Unlogged exercises warning */}
+      <Dialog
+        open={showUnloggedDialog}
+        onOpenChange={(v) => !v && setShowUnloggedDialog(false)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Exercises not logged</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground mb-2">
+            The following exercises have no data recorded:
+          </p>
+          <ul className="list-disc pl-5 text-sm space-y-1">
+            {unloggedExercises.map((name) => (
+              <li key={name}>{name}</li>
+            ))}
+          </ul>
+          <div className="flex gap-2 mt-4">
+            <Button
+              variant="outline"
+              className="flex-1 min-h-[44px]"
+              onClick={() => setShowUnloggedDialog(false)}
+            >
+              Go Back
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1 min-h-[44px]"
+              onClick={() => {
+                setShowUnloggedDialog(false);
+                void handleFinishWorkout(true);
+              }}
+            >
+              Finish Anyway
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

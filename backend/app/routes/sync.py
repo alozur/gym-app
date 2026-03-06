@@ -1,16 +1,28 @@
 """Bulk sync endpoint for offline-first client data."""
 
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sqlalchemy.orm import selectinload
+
 from app.dependencies import get_current_user, get_db
-from app.models import ExerciseProgress, User, WorkoutSession, WorkoutSet
+from app.models import ExerciseProgress, Program, User, WorkoutSession, WorkoutSet
 from app.schemas import SyncRequest, SyncResponse
 
 router = APIRouter(prefix="/api/sync", tags=["sync"])
+
+
+def _naive(dt: datetime | None) -> datetime | None:
+    """Strip timezone info so asyncpg can insert into TIMESTAMP WITHOUT TIME ZONE."""
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
 
 @router.post("", response_model=SyncResponse)
@@ -23,6 +35,7 @@ async def sync_data(
     synced_session_ids: list[str] = []
     synced_set_ids: list[str] = []
     errors: list[str] = []
+    new_finished_program_ids: list[str] = []
 
     # Upsert sessions
     for session_data in body.sessions:
@@ -44,8 +57,8 @@ async def sync_data(
                 existing.program_id = session_data.program_id
                 existing.year_week = session_data.year_week
                 existing.week_type = session_data.week_type
-                existing.started_at = session_data.started_at
-                existing.finished_at = session_data.finished_at
+                existing.started_at = _naive(session_data.started_at)
+                existing.finished_at = _naive(session_data.finished_at)
                 existing.notes = session_data.notes
                 existing.synced = True
             else:
@@ -56,12 +69,15 @@ async def sync_data(
                     program_id=session_data.program_id,
                     year_week=session_data.year_week,
                     week_type=session_data.week_type,
-                    started_at=session_data.started_at,
-                    finished_at=session_data.finished_at,
+                    started_at=_naive(session_data.started_at),
+                    finished_at=_naive(session_data.finished_at),
                     notes=session_data.notes,
                     synced=True,
                 )
                 db.add(session)
+                # Track new finished sessions with a program for rotation
+                if session_data.finished_at and session_data.program_id:
+                    new_finished_program_ids.append(session_data.program_id)
             synced_session_ids.append(session_data.id)
         except Exception as exc:
             errors.append(f"Session {session_data.id}: {str(exc)}")
@@ -118,6 +134,28 @@ async def sync_data(
             synced_set_ids.append(set_data.id)
         except Exception as exc:
             errors.append(f"Set {set_data.id}: {str(exc)}")
+
+    # Advance programs for newly synced finished sessions
+    for prog_id in dict.fromkeys(new_finished_program_ids):
+        try:
+            prog_result = await db.execute(
+                select(Program)
+                .where(
+                    Program.id == prog_id,
+                    Program.user_id == current_user.id,
+                )
+                .options(selectinload(Program.routines))
+            )
+            program = prog_result.scalar_one_or_none()
+            if program and program.routines:
+                next_index = program.current_routine_index + 1
+                if next_index >= len(program.routines):
+                    next_index = 0
+                    program.weeks_completed += 1
+                program.current_routine_index = next_index
+                program.last_workout_at = datetime.utcnow()
+        except Exception as exc:
+            errors.append(f"Program advance {prog_id}: {str(exc)}")
 
     await db.commit()
 

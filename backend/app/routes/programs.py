@@ -293,6 +293,50 @@ async def activate_program(
     return result.scalar_one()
 
 
+@router.post("/{program_id}/advance", response_model=ProgramResponse)
+async def advance_program(
+    program_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Program:
+    """Advance the program to the next routine after a workout."""
+    result = await db.execute(
+        select(Program)
+        .where(
+            Program.id == program_id,
+            Program.user_id == current_user.id,
+        )
+        .options(selectinload(Program.routines))
+    )
+    program = result.scalar_one_or_none()
+    if not program:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Program not found"
+        )
+
+    if not program.routines:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Program has no routines",
+        )
+
+    next_index = program.current_routine_index + 1
+    if next_index >= len(program.routines):
+        next_index = 0
+        program.weeks_completed += 1
+
+    program.current_routine_index = next_index
+    program.last_workout_at = datetime.utcnow()
+    await db.commit()
+
+    result = await db.execute(
+        select(Program)
+        .where(Program.id == program.id)
+        .options(selectinload(Program.routines))
+    )
+    return result.scalar_one()
+
+
 @router.post("/{program_id}/deactivate", response_model=ProgramResponse)
 async def deactivate_program(
     program_id: str,

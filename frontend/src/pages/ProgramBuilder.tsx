@@ -165,17 +165,19 @@ export default function ProgramBuilder() {
           .equals(progId)
           .delete();
 
+        // Preserve existing program progress fields
+        const existing = await db.programs.get(progId);
         await db.programs.put({
           id: progId,
           user_id: userId,
           name: name.trim(),
           deload_every_n_weeks: deloadWeeks,
-          is_active: false,
-          started_at: null,
-          current_routine_index: 0,
-          weeks_completed: 0,
-          last_workout_at: null,
-          created_at: now,
+          is_active: existing?.is_active ?? false,
+          started_at: existing?.started_at ?? null,
+          current_routine_index: existing?.current_routine_index ?? 0,
+          weeks_completed: existing?.weeks_completed ?? 0,
+          last_workout_at: existing?.last_workout_at ?? null,
+          created_at: existing?.created_at ?? now,
           sync_status: "pending",
         });
       } else {

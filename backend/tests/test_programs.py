@@ -233,6 +233,11 @@ async def test_today_endpoint(auth_seeded_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_today_no_active_program(auth_seeded_client: AsyncClient):
+    # Deactivate the default program created on registration
+    programs_resp = await auth_seeded_client.get("/api/programs")
+    for prog in programs_resp.json():
+        if prog["is_active"]:
+            await auth_seeded_client.post(f"/api/programs/{prog['id']}/deactivate")
     resp = await auth_seeded_client.get("/api/programs/today")
     assert resp.status_code == 404
 
