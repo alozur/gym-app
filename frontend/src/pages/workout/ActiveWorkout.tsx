@@ -23,6 +23,7 @@ import { ExerciseCard } from "./ExerciseCard";
 import { getYearWeek } from "./types";
 import type {
   ExerciseEntry,
+  LastSetInfo,
   SetEntry,
   SubstituteExercise,
 } from "./types";
@@ -44,6 +45,7 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
   const [isFinishing, setIsFinishing] = useState(false);
   const [unloggedExercises, setUnloggedExercises] = useState<string[]>([]);
   const [showUnloggedDialog, setShowUnloggedDialog] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   const existingExerciseIds = useMemo(
     () => exercises.map((e) => e.exerciseId),
@@ -120,6 +122,38 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
         : [];
       const oldSubExMap = new Map(oldSubExData.map((e) => [e.id, e]));
 
+      // Look up last session's working sets for each exercise
+      const lastSetsMap = new Map<string, LastSetInfo[]>();
+      const prevSessions = await db.workoutSessions
+        .where("template_id")
+        .equals(session.template_id!)
+        .and((s) => s.id !== session.id && s.finished_at !== null)
+        .toArray();
+      // Sort descending by started_at to find the most recent
+      prevSessions.sort((a, b) => b.started_at.localeCompare(a.started_at));
+      const lastSession = prevSessions[0];
+      if (lastSession) {
+        const prevSets = await db.workoutSets
+          .where("session_id")
+          .equals(lastSession.id)
+          .and((s) => s.set_type === "working")
+          .toArray();
+        for (const s of prevSets) {
+          const arr = lastSetsMap.get(s.exercise_id) ?? [];
+          arr.push({
+            setNumber: s.set_number,
+            weight: s.weight,
+            reps: s.reps,
+            rpe: s.rpe,
+          });
+          lastSetsMap.set(s.exercise_id, arr);
+        }
+        // Sort each exercise's sets by set number
+        for (const arr of lastSetsMap.values()) {
+          arr.sort((a, b) => a.setNumber - b.setNumber);
+        }
+      }
+
       const entries: ExerciseEntry[] = mainTEs.map((te) => {
         const ex = exerciseMap.get(te.exercise_id);
 
@@ -137,6 +171,7 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
               equipment: subEx?.equipment ?? null,
               youtubeUrl: subEx?.youtube_url ?? null,
               notes: subEx?.notes ?? null,
+              exerciseType: subEx?.exercise_type ?? "reps",
               prescription: childTE,
               lastMaxWeight: maxWeightMap.get(childTE.exercise_id) ?? null,
             };
@@ -152,19 +187,22 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
               equipment: subEx?.equipment ?? null,
               youtubeUrl: subEx?.youtube_url ?? null,
               notes: subEx?.notes ?? null,
+              exerciseType: subEx?.exercise_type ?? "reps",
               prescription: null,
               lastMaxWeight: maxWeightMap.get(s.substitute_exercise_id) ?? null,
             };
           });
         }
 
+        const exType = ex?.exercise_type ?? "reps";
+        const prevExSets = lastSetsMap.get(te.exercise_id) ?? [];
         const workingSets: SetEntry[] = Array.from(
           { length: te.working_sets },
           (_, i) => ({
             id: uuidv4(),
             setType: "working" as const,
             setNumber: i + 1,
-            weight: "",
+            weight: prevExSets[i]?.weight?.toString() ?? "",
             reps: "",
             rpe: "",
             saved: false,
@@ -178,10 +216,12 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
           equipment: ex?.equipment ?? null,
           youtubeUrl: ex?.youtube_url ?? null,
           exerciseNotes: ex?.notes ?? null,
+          exerciseType: exType,
           prescription: te,
           lastMaxWeight: maxWeightMap.get(te.exercise_id) ?? null,
           warmupCount: te.warmup_sets,
           workingSets,
+          lastSets: prevExSets,
           substitutions: oldSubsMap.get(te.exercise_id) ?? [],
           substituteExercises: [
             {
@@ -190,6 +230,7 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
               equipment: ex?.equipment ?? null,
               youtubeUrl: ex?.youtube_url ?? null,
               notes: ex?.notes ?? null,
+              exerciseType: exType,
               prescription: te,
               lastMaxWeight: maxWeightMap.get(te.exercise_id) ?? null,
             },
@@ -258,6 +299,7 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
             equipment: newExercise.equipment,
             youtubeUrl: newExercise.youtubeUrl,
             exerciseNotes: newExercise.notes,
+            exerciseType: newExercise.exerciseType,
             prescription: newRx ?? e.prescription,
             lastMaxWeight: newExercise.lastMaxWeight,
             warmupCount: newWarmup,
@@ -279,6 +321,7 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
       ? Math.max(...progressRecords.map((p) => p.max_weight))
       : null;
 
+    const exType = ex.exercise_type ?? "reps";
     const newEntry: ExerciseEntry = {
       prescriptionId: null,
       exerciseId: ex.id,
@@ -286,6 +329,7 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
       equipment: ex.equipment,
       youtubeUrl: ex.youtube_url,
       exerciseNotes: ex.notes,
+      exerciseType: exType,
       prescription: null,
       lastMaxWeight,
       warmupCount: lastMaxWeight ? 2 : 0,
@@ -301,12 +345,14 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
         },
       ],
       substitutions: [],
+      lastSets: [],
       substituteExercises: [{
         id: ex.id,
         name: ex.name,
         equipment: ex.equipment,
         youtubeUrl: ex.youtube_url,
         notes: ex.notes,
+        exerciseType: exType,
         prescription: null,
         lastMaxWeight,
       }],
@@ -333,14 +379,38 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
     );
   }
 
+  function handleRemoveWorkingSet(exerciseId: string) {
+    setExercises((prev) =>
+      prev.map((e) => {
+        if (e.exerciseId !== exerciseId) return e;
+        if (e.workingSets.length <= 1) return e;
+        const sets = e.workingSets.slice(0, -1);
+        return { ...e, workingSets: sets };
+      })
+    );
+  }
+
+  async function handleCancelWorkout() {
+    // Delete all sets for this session, then delete the session itself
+    await db.workoutSets.where("session_id").equals(session.id).delete();
+    await db.workoutSessions.delete(session.id);
+    setShowCancelDialog(false);
+    if (onFinished) {
+      onFinished();
+    } else {
+      navigate("/", { replace: true });
+    }
+  }
+
   /** Auto-log any unsaved sets that have valid weight+reps filled in. */
   async function autoLogUnsavedSets() {
     for (const entry of exercises) {
+      const isTimed = entry.exerciseType === "timed";
       const unsaved = entry.workingSets.filter((s) => {
         if (s.saved) return false;
-        const w = parseFloat(s.weight);
+        const w = parseFloat(s.weight || (isTimed ? "0" : ""));
         const r = parseInt(s.reps, 10);
-        return !isNaN(w) && w > 0 && !isNaN(r) && r > 0;
+        return !isNaN(w) && (isTimed ? w >= 0 : w > 0) && !isNaN(r) && r > 0;
       });
 
       for (const s of unsaved) {
@@ -351,7 +421,7 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
           set_type: "working",
           set_number: s.setNumber,
           reps: parseInt(s.reps, 10),
-          weight: parseFloat(s.weight),
+          weight: parseFloat(s.weight || (isTimed ? "0" : "")),
           rpe: s.rpe ? parseFloat(s.rpe) : null,
           notes: null,
           created_at: new Date().toISOString(),
@@ -382,10 +452,11 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
     return exercises
       .filter((entry) => {
         const hasAnySaved = entry.workingSets.some((s) => s.saved);
+        const isTimed = entry.exerciseType === "timed";
         const hasAnyFilled = entry.workingSets.some((s) => {
-          const w = parseFloat(s.weight);
+          const w = parseFloat(s.weight || (isTimed ? "0" : ""));
           const r = parseInt(s.reps, 10);
-          return !isNaN(w) && w > 0 && !isNaN(r) && r > 0;
+          return !isNaN(w) && (isTimed ? w >= 0 : w > 0) && !isNaN(r) && r > 0;
         });
         return !hasAnySaved && !hasAnyFilled;
       })
@@ -503,36 +574,37 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-bold">
-          {templateName ?? "Ad-hoc Workout"}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {session.week_type === "deload" ? "Deload" : "Normal"} Week
-          {session.year_week && ` - ${session.year_week}`}
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">
+            {templateName ?? "Ad-hoc Workout"}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {session.week_type === "deload" ? "Deload" : "Normal"} Week
+            {session.year_week && ` - ${session.year_week}`}
+          </p>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground"
+          onClick={() => setShowCancelDialog(true)}
+          type="button"
+        >
+          Cancel
+        </Button>
       </div>
 
       {exercises.map((entry) => (
-        <div key={entry.prescriptionId ?? entry.exerciseId} className="flex flex-col gap-2">
-          <ExerciseCard
-            entry={entry}
-            sessionId={session.id}
-            onUpdateSets={handleUpdateSets}
-            onSubstitute={handleSubstitute}
-          />
-          {!entry.prescription && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="self-end min-h-[36px]"
-              onClick={() => handleAddWorkingSet(entry.exerciseId)}
-              type="button"
-            >
-              + Add Working Set
-            </Button>
-          )}
-        </div>
+        <ExerciseCard
+          key={entry.prescriptionId ?? entry.exerciseId}
+          entry={entry}
+          sessionId={session.id}
+          onUpdateSets={handleUpdateSets}
+          onSubstitute={handleSubstitute}
+          onAddSet={() => handleAddWorkingSet(entry.exerciseId)}
+          onRemoveSet={() => handleRemoveWorkingSet(entry.exerciseId)}
+        />
       ))}
 
       {/* Ad-hoc: add exercise button */}
@@ -570,6 +642,37 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
             onSelect={handleAddExercise}
             excludeIds={existingExerciseIds}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel workout confirmation */}
+      <Dialog
+        open={showCancelDialog}
+        onOpenChange={(v) => !v && setShowCancelDialog(false)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel workout?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This will discard all logged sets for this session. This cannot be undone.
+          </p>
+          <div className="flex gap-2 mt-4">
+            <Button
+              variant="outline"
+              className="flex-1 min-h-[44px]"
+              onClick={() => setShowCancelDialog(false)}
+            >
+              Keep Going
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1 min-h-[44px]"
+              onClick={() => void handleCancelWorkout()}
+            >
+              Discard Workout
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

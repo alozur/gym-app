@@ -1,6 +1,8 @@
 from datetime import datetime
 from decimal import Decimal
 
+from typing import Literal
+
 from pydantic import BaseModel, EmailStr, Field, model_validator
 
 
@@ -91,6 +93,7 @@ class ExerciseCreate(BaseModel):
     equipment: str | None = None
     youtube_url: str | None = None
     notes: str | None = None
+    exercise_type: Literal["reps", "timed"] = "reps"
 
 
 class ExerciseResponse(BaseModel):
@@ -101,6 +104,7 @@ class ExerciseResponse(BaseModel):
     is_custom: bool
     youtube_url: str | None = None
     notes: str | None = None
+    exercise_type: str
     created_at: datetime
     substitutions: list[SubstitutionResponse] = []
 

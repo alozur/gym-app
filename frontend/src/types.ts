@@ -66,6 +66,7 @@ export interface ExerciseCreate {
   equipment: string | null;
   youtube_url: string | null;
   notes: string | null;
+  exercise_type?: "reps" | "timed";
 }
 
 export interface ExerciseResponse {
@@ -76,6 +77,7 @@ export interface ExerciseResponse {
   is_custom: boolean;
   youtube_url: string | null;
   notes: string | null;
+  exercise_type: "reps" | "timed";
   created_at: string;
   substitutions: SubstitutionResponse[];
 }

@@ -55,6 +55,9 @@ class Exercise(Base):
     is_custom: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     youtube_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    exercise_type: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="reps"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow
     )

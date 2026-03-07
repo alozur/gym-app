@@ -24,8 +24,16 @@ export interface SubstituteExercise {
   equipment: string | null;
   youtubeUrl: string | null;
   notes: string | null;
+  exerciseType: "reps" | "timed";
   prescription: DbTemplateExercise | null;
   lastMaxWeight: number | null;
+}
+
+export interface LastSetInfo {
+  setNumber: number;
+  weight: number;
+  reps: number;
+  rpe: number | null;
 }
 
 export interface ExerciseEntry {
@@ -35,12 +43,14 @@ export interface ExerciseEntry {
   equipment: string | null;
   youtubeUrl: string | null;
   exerciseNotes: string | null;
+  exerciseType: "reps" | "timed";
   prescription: DbTemplateExercise | null;
   lastMaxWeight: number | null;
   warmupCount: number;
   workingSets: SetEntry[];
   substitutions: DbExerciseSubstitution[];
   substituteExercises: SubstituteExercise[];
+  lastSets: LastSetInfo[];
 }
 
 export interface SetEntry {

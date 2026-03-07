@@ -563,6 +563,42 @@ exercises_data = [
         "equipment": "Band",
         "youtube_url": "https://www.youtube.com/watch?v=sOYvvFPYdsU",
     },
+    # ── Timed Exercises ──
+    {
+        "name": "Plank",
+        "muscle_group": "Abs",
+        "equipment": "Bodyweight",
+        "exercise_type": "timed",
+    },
+    {
+        "name": "Side Plank",
+        "muscle_group": "Abs",
+        "equipment": "Bodyweight",
+        "exercise_type": "timed",
+    },
+    {
+        "name": "Dead Hang",
+        "muscle_group": "Back",
+        "equipment": "Bodyweight",
+        "exercise_type": "timed",
+    },
+    {
+        "name": "Wall Sit",
+        "muscle_group": "Quads",
+        "equipment": "Bodyweight",
+        "exercise_type": "timed",
+    },
+    {
+        "name": "Hanging from the Bar",
+        "muscle_group": "Back",
+        "equipment": "Bodyweight",
+        "exercise_type": "timed",
+        "notes": "Grab the bar with an overhand grip, slightly wider than shoulder width. "
+        "Let your body hang fully extended — relax your legs and torso but keep your "
+        "shoulders slightly engaged (don't go fully passive). Breathe slowly and deeply. "
+        "Great for grip strength, shoulder decompression, and lat stretching. "
+        "Progress by adding time or holding a dumbbell between your feet for extra load.",
+    },
 ]
 
 substitutions_data = [
@@ -633,6 +669,8 @@ substitutions_data = [
     ("Machine Hip Adduction", "Copenhagen Hip Adduction", 2),
     ("Machine Hip Abduction", "Cable Hip Abduction", 1),
     ("Machine Hip Abduction", "Lateral Band Walk", 2),
+    # Timed exercises
+    ("Plank", "Side Plank", 1),
 ]
 
 

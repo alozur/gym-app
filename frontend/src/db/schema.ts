@@ -36,6 +36,7 @@ export interface DbExercise {
   is_custom: boolean;
   youtube_url: string | null;
   notes: string | null;
+  exercise_type: "reps" | "timed";
   created_at: string;
   sync_status: SyncStatus;
 }
@@ -231,6 +232,34 @@ export class GymTrackerDB extends Dexie {
           .modify((session: Record<string, unknown>) => {
             if (!("program_id" in session)) {
               session["program_id"] = null;
+            }
+          });
+      });
+
+    this.version(4)
+      .stores({
+        users: "id, email, sync_status",
+        exercises: "id, user_id, muscle_group, is_custom, sync_status",
+        exerciseSubstitutions:
+          "id, exercise_id, substitute_exercise_id, sync_status",
+        workoutTemplates: "id, user_id, sync_status",
+        templateExercises:
+          "id, template_id, exercise_id, week_type, sync_status",
+        workoutSessions:
+          "id, user_id, template_id, year_week, week_type, program_id, sync_status",
+        workoutSets: "id, session_id, exercise_id, set_type, sync_status",
+        exerciseProgress:
+          "id, user_id, exercise_id, year_week, [user_id+exercise_id+year_week], sync_status",
+        programs: "id, user_id, is_active, sync_status",
+        programRoutines: "id, program_id, template_id, sync_status",
+      })
+      .upgrade((tx) => {
+        return tx
+          .table("exercises")
+          .toCollection()
+          .modify((exercise: Record<string, unknown>) => {
+            if (!("exercise_type" in exercise)) {
+              exercise["exercise_type"] = "reps";
             }
           });
       });
