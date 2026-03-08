@@ -196,12 +196,7 @@ exercises_data = [
         "notes": "To keep tension on the hamstrings, stop about 75% of the way to full lockout on each rep (i.e. stay in the bottom 3/4 of the range of motion).",
     },
     {
-        "name": "Dumbell RDL",
-        "muscle_group": "Hamstrings",
-        "equipment": "Dumbbell",
-    },
-    {
-        "name": "DB RDL",
+        "name": "Dumbbell RDL",
         "muscle_group": "Hamstrings",
         "equipment": "Dumbbell",
         "youtube_url": "https://www.youtube.com/watch?v=VRwSgUoj7uI",
@@ -252,7 +247,7 @@ exercises_data = [
     },
     {
         "name": "Cable Crunch",
-        "muscle_group": "Abs",
+        "muscle_group": "Core",
         "equipment": "Cable",
         "youtube_url": "https://www.youtube.com/watch?v=epBrpaGHMcg",
         "notes": "Round your lower back as you crunch. Maintain a mind-muscle connection with your 6-pack.",
@@ -628,7 +623,7 @@ substitutions_data = [
     ("Lying Leg Curl", "Nordic Ham Curl", 2),
     ("Smith Machine Squat", "DB Bulgarian Split Squat", 1),
     ("Smith Machine Squat", "High-Bar Back Squat", 2),
-    ("Barbell RDL", "DB RDL", 1),
+    ("Barbell RDL", "Dumbbell RDL", 1),
     ("Barbell RDL", "Snatch-Grip RDL", 2),
     ("Leg Extension", "Reverse Nordic", 1),
     ("Leg Extension", "Sissy Squat", 2),
@@ -712,6 +707,11 @@ async def seed_exercises(db: AsyncSession) -> None:
     # Seed Minimalift-specific exercises
     from app.seed_minimalift import seed_minimalift_exercises
     await seed_minimalift_exercises(db)
+    await db.commit()
+
+    # Seed Minimalift 5-Day-specific exercises
+    from app.seed_minimalift_5day import seed_minimalift_5day_exercises
+    await seed_minimalift_5day_exercises(db)
     await db.commit()
 
 
@@ -913,6 +913,7 @@ async def seed_default_program(db: AsyncSession) -> None:
 async def enroll_user_in_defaults(db: AsyncSession, user_id: str | UUID) -> None:
     """Create UserProgram enrollments for a new user in shared programs."""
     from app.seed_minimalift import SHARED_MINIMALIFT_PROGRAM_ID
+    from app.seed_minimalift_5day import SHARED_MINIMALIFT_5DAY_PROGRAM_ID
 
     uid = str(user_id)
 
@@ -934,6 +935,16 @@ async def enroll_user_in_defaults(db: AsyncSession, user_id: str | UUID) -> None
         db.add(UserProgram(
             user_id=uid,
             program_id=SHARED_MINIMALIFT_PROGRAM_ID,
+            is_active=False,
+        ))
+
+    ml5_exists = await db.execute(
+        select(Program).where(Program.id == SHARED_MINIMALIFT_5DAY_PROGRAM_ID)
+    )
+    if ml5_exists.scalar_one_or_none():
+        db.add(UserProgram(
+            user_id=uid,
+            program_id=SHARED_MINIMALIFT_5DAY_PROGRAM_ID,
             is_active=False,
         ))
 

@@ -8,13 +8,15 @@ from sqlalchemy.orm import selectinload
 from app.models import Exercise, ExerciseSubstitution
 from app.seed import exercises_data, seed_exercises
 from app.seed_minimalift import minimalift_exercises_data
+from app.seed_minimalift_5day import minimalift_5day_exercises_data
 
 
 def _unique_exercise_count() -> int:
-    """Compute expected unique exercise count across both seed lists."""
+    """Compute expected unique exercise count across all seed lists."""
     jn = {e["name"] for e in exercises_data}
     ml = {e["name"] for e in minimalift_exercises_data}
-    return len(jn | ml)
+    ml5 = {e["name"] for e in minimalift_5day_exercises_data}
+    return len(jn | ml | ml5)
 
 
 @pytest.mark.asyncio

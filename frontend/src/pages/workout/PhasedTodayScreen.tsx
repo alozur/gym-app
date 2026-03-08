@@ -77,12 +77,19 @@ export function PhasedTodayScreen({
 
       // week_number is 1-indexed
       const weekNum = (weekInPhase % currentPhase.duration_weeks) + 1;
-      const currentDayIdx = dayIdx % 3;
+
+      // Determine days per week from actual workout data for this phase
+      const phaseWorkouts = await db.phaseWorkouts
+        .where("phase_id")
+        .equals(currentPhase.id)
+        .toArray();
+      const daysPerWeek = new Set(phaseWorkouts.map((w) => w.day_index)).size || 3;
+      const currentDayIdx = dayIdx % daysPerWeek;
 
       // Find the workout matching phase + week + day
       const workouts = await db.phaseWorkouts
-        .where("[phase_id+day_index+week_number]")
-        .equals([currentPhase.id, currentDayIdx, weekNum])
+        .where("[phase_id+week_number+day_index]")
+        .equals([currentPhase.id, weekNum, currentDayIdx])
         .toArray();
 
       const currentWorkout = workouts[0] ?? null;

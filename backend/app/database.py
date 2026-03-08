@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy import MetaData
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -27,6 +28,8 @@ class Settings(BaseSettings):
         return "sqlite+aiosqlite:///./gym_tracker.db"
 
 
+DB_SCHEMA = "gym"
+
 settings = Settings()
 
 engine = create_async_engine(settings.database_url, echo=False)
@@ -34,4 +37,4 @@ async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit
 
 
 class Base(DeclarativeBase):
-    pass
+    metadata = MetaData(schema=DB_SCHEMA)

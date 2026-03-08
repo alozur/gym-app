@@ -80,8 +80,8 @@ export default function PhasedProgramView() {
   const loadWeekWorkouts = useCallback(
     async (phaseId: string, weekNumber: number) => {
       const workouts = await db.phaseWorkouts
-        .where("[phase_id+day_index+week_number]")
-        .between([phaseId, 0, weekNumber], [phaseId, 99, weekNumber])
+        .where("[phase_id+week_number+day_index]")
+        .between([phaseId, weekNumber, 0], [phaseId, weekNumber, 99])
         .toArray();
       workouts.sort((a, b) => a.day_index - b.day_index);
 

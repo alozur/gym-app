@@ -59,8 +59,8 @@ minimalift_exercises_data: list[dict] = [
     {"name": "Suitcase March", "muscle_group": "Core", "equipment": "Dumbbell", "exercise_type": "timed", "youtube_url": "https://bit.ly/3Y19Tl2"},
     # ── Substitutes (Phase 1) ──
     {"name": "Calf Raise", "muscle_group": "Calves", "equipment": "Machine", "youtube_url": "https://bit.ly/3Gd3sFj"},
-    {"name": "Seated Press", "muscle_group": "Shoulders", "equipment": "Dumbbell", "youtube_url": "https://bit.ly/3GdkNOq"},
-    {"name": "DB Incline Press", "muscle_group": "Chest", "equipment": "Dumbbell", "youtube_url": "https://bit.ly/4jfPotl"},
+    {"name": "Dumbbell Overhead Press", "muscle_group": "Shoulders", "equipment": "Dumbbell", "youtube_url": "https://bit.ly/3GdkNOq"},
+    {"name": "Incline Dumbbell Press", "muscle_group": "Chest", "equipment": "Dumbbell", "youtube_url": "https://bit.ly/4jfPotl"},
     {"name": "Bench Press", "muscle_group": "Chest", "equipment": "Barbell", "youtube_url": "https://bit.ly/3Yw4UJp"},
     {"name": "Push Up", "muscle_group": "Chest", "equipment": "Bodyweight", "youtube_url": "https://bit.ly/4ji3sCE"},
     {"name": "Cat Cow", "muscle_group": "Back", "equipment": "Bodyweight", "youtube_url": "https://bit.ly/3Ya77df"},
@@ -93,23 +93,20 @@ minimalift_exercises_data: list[dict] = [
     {"name": "Bodyweight Skullcrusher", "muscle_group": "Triceps", "equipment": "Bodyweight", "youtube_url": "https://bit.ly/3Y7xctj"},
     {"name": "Box Step Over", "muscle_group": "Quads", "equipment": "Bodyweight", "youtube_url": "https://bit.ly/3GgJAkE"},
     {"name": "Broad Jump", "muscle_group": "Full Body", "equipment": "Bodyweight", "youtube_url": "https://bit.ly/3Y85TiG"},
-    {"name": "Bulgarian Split Squat", "muscle_group": "Quads", "equipment": "Dumbbell", "youtube_url": "https://bit.ly/4jiOnAN"},
+    {"name": "DB Bulgarian Split Squat", "muscle_group": "Quads", "equipment": "Dumbbell", "youtube_url": "https://bit.ly/4jiOnAN"},
     {"name": "Cable Curl", "muscle_group": "Biceps", "equipment": "Cable", "youtube_url": "https://bit.ly/44xjoMA"},
     {"name": "Cable Raise", "muscle_group": "Shoulders", "equipment": "Cable", "youtube_url": "https://bit.ly/3EwLq0i"},
     {"name": "Cross Body Triceps Extension", "muscle_group": "Triceps", "equipment": "Cable", "youtube_url": "https://bit.ly/4jqUVx2"},
     {"name": "DB Cross Body Extension", "muscle_group": "Triceps", "equipment": "Dumbbell", "youtube_url": "https://bit.ly/42QEHrg"},
     {"name": "DB Row - Dual", "muscle_group": "Back", "equipment": "Dumbbell", "youtube_url": "https://bit.ly/4ja2KqZ"},
     {"name": "Depth Jump", "muscle_group": "Full Body", "equipment": "Bodyweight", "youtube_url": "https://bit.ly/4jiJcki"},
-    {"name": "Dumbbell Overhead Press", "muscle_group": "Shoulders", "equipment": "Dumbbell", "youtube_url": "https://bit.ly/3GdkNOq"},
     {"name": "Dumbbell Push Press", "muscle_group": "Shoulders", "equipment": "Dumbbell", "youtube_url": "https://bit.ly/4jfPoJR"},
     {"name": "Face Pull", "muscle_group": "Shoulders", "equipment": "Cable", "youtube_url": "https://bit.ly/4jf8VtJ"},
-    {"name": "Full ROM Crunch", "muscle_group": "Core", "equipment": "Bodyweight", "youtube_url": "https://bit.ly/4jirQnI"},
     {"name": "Full Range Crunch", "muscle_group": "Core", "equipment": "Bodyweight", "youtube_url": "https://bit.ly/4jirQnI"},
     {"name": "Glute Bridge", "muscle_group": "Glutes", "equipment": "Bodyweight", "youtube_url": "https://bit.ly/3Y3rysd"},
     {"name": "Hamstring Bridge", "muscle_group": "Hamstrings", "equipment": "Bodyweight", "youtube_url": "https://bit.ly/4jfn9uJ"},
     {"name": "Hip Flexor Plank", "muscle_group": "Core", "equipment": "Bodyweight", "exercise_type": "timed", "youtube_url": "https://bit.ly/4cIWggw"},
     {"name": "Horse Stance Good Morning", "muscle_group": "Hamstrings", "equipment": "Bodyweight", "youtube_url": "https://bit.ly/3Y3rybH"},
-    {"name": "Incline Dumbbell Press", "muscle_group": "Chest", "equipment": "Dumbbell", "youtube_url": "https://bit.ly/4jfPotl"},
     {"name": "Incline Skullcrusher", "muscle_group": "Triceps", "equipment": "Dumbbell", "youtube_url": "https://bit.ly/4lyks94"},
     {"name": "Landmine Press", "muscle_group": "Shoulders", "equipment": "Barbell", "youtube_url": "https://bit.ly/4jihBj4"},
     {"name": "Lateral Jump", "muscle_group": "Full Body", "equipment": "Bodyweight", "youtube_url": "https://bit.ly/4jgdST6"},
@@ -133,7 +130,6 @@ minimalift_exercises_data: list[dict] = [
     {"name": "Windmill", "muscle_group": "Core", "equipment": "Dumbbell", "youtube_url": "https://bit.ly/4jzBVwe"},
     {"name": "Zercher March", "muscle_group": "Core", "equipment": "Barbell", "youtube_url": "https://bit.ly/4jf8VKf"},
     {"name": "Cable Crunch", "muscle_group": "Core", "equipment": "Cable", "youtube_url": "https://bit.ly/3GkBCqL"},
-    {"name": "DB RDL", "muscle_group": "Hamstrings", "equipment": "Dumbbell", "youtube_url": "https://bit.ly/4jfn9ed"},
     # ── Substitutes (Phase 2) ──
     {"name": "Dead Hang", "muscle_group": "Back", "equipment": "Bodyweight", "exercise_type": "timed", "youtube_url": "https://bit.ly/44kU50v"},
     {"name": "Plank", "muscle_group": "Core", "equipment": "Bodyweight", "exercise_type": "timed", "youtube_url": "https://bit.ly/3Y6Bam2"},
@@ -258,7 +254,7 @@ _P1_D1_STRENGTH = [
     _ex("Barbell Squat", 6, "5", rest_period="-",
         sub1="Goblet Squat", sub2="Leg Press"),
     _ex("Z-Press", 6, "5", rest_period="-",
-        sub1="Seated Press", sub2="DB Incline Press"),
+        sub1="Dumbbell Overhead Press", sub2="Incline Dumbbell Press"),
 ]
 _P1_D1_SWOLE = [
     _ex("Dumbbell Press", 1, "6-10", rest_period="0s",
@@ -375,7 +371,7 @@ _P2_D1_WARMUP = {
     2: [
         _ex("Vertical Jump", 3, "5", rest_period="0-10s",
             sub1="Stand to Triple Extension"),
-        _ex("Full ROM Crunch", 3, "10", rest_period="0-10s",
+        _ex("Full Range Crunch", 3, "10", rest_period="0-10s",
             sub1="Lying Leg Raise"),
     ],
     3: [
@@ -413,7 +409,7 @@ _P2_D1_STRENGTH = [
     _ex("Barbell Squat", 6, "5", rest_period="-",
         sub1="Goblet Squat", sub2="Leg Press"),
     _ex("Z-Press", 3, "5", rest_period="-",
-        sub1="Seated Press", sub2="DB Incline Press"),
+        sub1="Dumbbell Overhead Press", sub2="Incline Dumbbell Press"),
 ]
 _P2_D1_SWOLE = [
     _ex("Incline Dumbbell Press", 1, "6-10", rest_period="0s",
@@ -421,7 +417,7 @@ _P2_D1_SWOLE = [
         sub1="Bench Press", sub2="Push Up"),
     _ex("B-Stance RDL", 1, "10 e/s", rest_period="0s",
         notes="2 second pause in the stretch on each rep",
-        sub1="DB RDL"),
+        sub1="Dumbbell RDL"),
     _ex("Pike Pulse", 1, "10 e/s", rest_period="60s",
         notes="2 second pause at the top of each rep",
         sub1="Single Leg Raise"),
@@ -444,14 +440,14 @@ _P2_D2_STRENGTH = [
         sub1="Lat Pulldown", sub2="Inverted Row"),
 ]
 _P2_D2_SWOLE_W12 = [
-    _ex("Bulgarian Split Squat", 1, "8-12 e/s", rest_period="0s",
+    _ex("DB Bulgarian Split Squat", 1, "8-12 e/s", rest_period="0s",
         notes="Pause in the bottom of each rep for 3 seconds",
         sub1="Single Leg Press", sub2="Smith Machine Split Squat"),
     _ex("Hip Flexor Plank", 1, "20s e/s", rest_period="60s",
         sub1="Plank"),
 ]
 _P2_D2_SWOLE_W34 = [
-    _ex("Bulgarian Split Squat", 1, "8-12 e/s", rest_period="0s",
+    _ex("DB Bulgarian Split Squat", 1, "8-12 e/s", rest_period="0s",
         notes="1 & 1/4 reps. Go all the way down, 1/4 of the way up, all the way down, all the way up \u2014 that counts as 1 rep.",
         sub1="Single Leg Press", sub2="Smith Machine Split Squat"),
     _ex("Hip Flexor Plank", 1, "20s e/s", rest_period="60s",
@@ -608,7 +604,7 @@ _P3_D1_STRENGTH = [
         sub1="Goblet Squat", sub2="Leg Press"),
     _ex("Z-Press", 3, "10", rest_period="-",
         notes="Every 2 minutes for 3 total sets, perform 10 Z-Presses",
-        sub1="Seated Press", sub2="DB Incline Press"),
+        sub1="Dumbbell Overhead Press", sub2="Incline Dumbbell Press"),
 ]
 _P3_D1_SWOLE = [
     _ex("Dip", 1, "6-10", rest_period="0s",
@@ -616,7 +612,7 @@ _P3_D1_SWOLE = [
         sub1="Close Grip Push Up", sub2="Bench Dip"),
     _ex("Romanian Deadlift", 1, "6-10", rest_period="0s",
         notes="2 second pause in the stretch on each rep",
-        sub1="DB RDL", sub2="45 Degree Hyperextension"),
+        sub1="Dumbbell RDL", sub2="45 Degree Hyperextension"),
     _ex("Horse Stance Good Morning", 1, "15", rest_period="60s",
         notes="This is a gentle mobility stretch. Don't push it hard",
         sub1="Seated Good Morning"),

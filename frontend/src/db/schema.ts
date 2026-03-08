@@ -427,5 +427,11 @@ export class GymTrackerDB extends Dexie {
               }),
           );
       });
+
+    // Fix compound index order so week filtering works correctly
+    this.version(7).stores({
+      phaseWorkouts:
+        "id, phase_id, [phase_id+week_number+day_index], sync_status",
+    });
   }
 }

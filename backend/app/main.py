@@ -14,6 +14,7 @@ from app.routes.sync import router as sync_router
 from app.routes.templates import router as templates_router
 from app.seed import seed_default_program, seed_exercises
 from app.seed_minimalift import seed_minimalift_program
+from app.seed_minimalift_5day import seed_minimalift_5day_program
 
 
 @asynccontextmanager
@@ -29,7 +30,9 @@ async def lifespan(app: FastAPI):
             await seed_default_program(db)
             print("[LIFESPAN] JN program seeded")
             await seed_minimalift_program(db)
-            print("[LIFESPAN] Minimalift program seeded")
+            print("[LIFESPAN] Minimalift 3-Day program seeded")
+            await seed_minimalift_5day_program(db)
+            print("[LIFESPAN] Minimalift 5-Day program seeded")
     except Exception as e:
         print(f"[LIFESPAN] ERROR: {e}")
         raise
