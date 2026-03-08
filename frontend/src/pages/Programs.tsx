@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { db, type DbProgram, type DbUserProgram } from "@/db/index";
 import { useAuthContext } from "@/context/AuthContext";
 import { api } from "@/api/client";
-import type { ProgramResponse, UserProgramResponse } from "@/types";
+import type { ProgramResponse, ProgramPhaseDetailResponse, UserProgramResponse } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -126,6 +126,81 @@ export default function Programs() {
             enrollment: updatedEnrollmentMap.get(p.id) ?? null,
           })),
         );
+
+        // Hydrate phases for phased programs
+        for (const p of remote) {
+          if ((p.program_type ?? "rotating") !== "phased") continue;
+          try {
+            const phases = await api.get<ProgramPhaseDetailResponse[]>(
+              `/programs/${p.id}/phases`,
+            );
+            await db.programPhases.bulkPut(
+              phases.map((ph) => ({
+                id: ph.id,
+                program_id: p.id,
+                name: ph.name,
+                description: ph.description,
+                order: ph.order,
+                duration_weeks: ph.duration_weeks,
+                sync_status: "synced" as const,
+              })),
+            );
+            const workoutRecords = phases.flatMap((ph) =>
+              ph.workouts.map((w) => ({
+                id: w.id,
+                phase_id: ph.id,
+                name: w.name,
+                day_index: w.day_index,
+                week_number: w.week_number,
+                sync_status: "synced" as const,
+              })),
+            );
+            if (workoutRecords.length > 0) {
+              await db.phaseWorkouts.bulkPut(workoutRecords);
+            }
+            const sectionRecords = phases.flatMap((ph) =>
+              ph.workouts.flatMap((w) =>
+                w.sections.map((s) => ({
+                  id: s.id,
+                  workout_id: w.id,
+                  name: s.name,
+                  order: s.order,
+                  notes: s.notes,
+                  sync_status: "synced" as const,
+                })),
+              ),
+            );
+            if (sectionRecords.length > 0) {
+              await db.phaseWorkoutSections.bulkPut(sectionRecords);
+            }
+            const exerciseRecords = phases.flatMap((ph) =>
+              ph.workouts.flatMap((w) =>
+                w.sections.flatMap((s) =>
+                  s.exercises.map((ex) => ({
+                    id: ex.id,
+                    section_id: s.id,
+                    exercise_id: ex.exercise_id,
+                    order: ex.order,
+                    working_sets: ex.working_sets,
+                    reps_display: ex.reps_display,
+                    rest_period: ex.rest_period,
+                    intensity_technique: ex.intensity_technique,
+                    warmup_sets: ex.warmup_sets,
+                    notes: ex.notes,
+                    substitute1_exercise_id: ex.substitute1_exercise_id,
+                    substitute2_exercise_id: ex.substitute2_exercise_id,
+                    sync_status: "synced" as const,
+                  })),
+                ),
+              ),
+            );
+            if (exerciseRecords.length > 0) {
+              await db.phaseWorkoutExercises.bulkPut(exerciseRecords);
+            }
+          } catch {
+            // Phase hydration failed for this program
+          }
+        }
 
         const updatedCounts: Record<string, number> = {};
         const updatedPCounts: Record<string, number> = {};
