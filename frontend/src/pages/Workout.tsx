@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
-import { db, SYNC_STATUS, type DbWorkoutSession, type DbProgram } from "@/db/index";
+import { db, SYNC_STATUS, type DbWorkoutSession, type DbProgram, type DbUserProgram } from "@/db/index";
 import { useAuthContext } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { WorkoutSetup } from "./workout/WorkoutSetup";
 import { ActiveWorkout } from "./workout/ActiveWorkout";
 import { TodayScreen } from "./workout/TodayScreen";
+import { PhasedTodayScreen } from "./workout/PhasedTodayScreen";
 import { getYearWeek } from "./workout/types";
 import type { WeekType } from "./workout/types";
 
@@ -18,6 +19,7 @@ export default function Workout() {
   const [session, setSession] = useState<DbWorkoutSession | null>(null);
   const [templateName, setTemplateName] = useState<string | null>(null);
   const [activeProgram, setActiveProgram] = useState<DbProgram | null>(null);
+  const [activeEnrollment, setActiveEnrollment] = useState<DbUserProgram | null>(null);
   const [checkingActive, setCheckingActive] = useState(true);
   const [showAdHoc, setShowAdHoc] = useState(false);
 
@@ -47,13 +49,19 @@ export default function Workout() {
           return;
         }
 
-        // Check for active program — scan all and filter since Dexie
-        // indexes booleans inconsistently across environments
-        const allPrograms = await db.programs.toArray();
-        const program = allPrograms.find((p) => p.is_active);
+        // Check for active enrollment
+        const allEnrollments = await db.userPrograms
+          .where("user_id")
+          .equals(userId)
+          .toArray();
+        const enrollment = allEnrollments.find((e) => e.is_active);
 
-        if (program) {
-          setActiveProgram(program);
+        if (enrollment) {
+          const program = await db.programs.get(enrollment.program_id);
+          if (program) {
+            setActiveProgram(program);
+            setActiveEnrollment(enrollment);
+          }
         }
       } catch {
         // Dexie query failed — just show setup screen
@@ -68,6 +76,8 @@ export default function Workout() {
     weekType: WeekType,
     name: string | null,
     programId?: string,
+    phaseWorkoutId?: string,
+    userProgramId?: string,
   ) {
     const newSession: DbWorkoutSession = {
       id: uuidv4(),
@@ -79,6 +89,8 @@ export default function Workout() {
       finished_at: null,
       notes: null,
       program_id: programId ?? null,
+      phase_workout_id: phaseWorkoutId ?? null,
+      user_program_id: userProgramId ?? null,
       sync_status: SYNC_STATUS.pending,
     };
 
@@ -91,14 +103,25 @@ export default function Workout() {
     setSession(null);
     setTemplateName(null);
     setShowAdHoc(false);
-    // Reload active program
+    // Reload active enrollment/program
     void (async () => {
       try {
-        const allPrograms = await db.programs.toArray();
-        const program = allPrograms.find((p) => p.is_active);
-        setActiveProgram(program ?? null);
+        const allEnrollments = await db.userPrograms
+          .where("user_id")
+          .equals(userId)
+          .toArray();
+        const enrollment = allEnrollments.find((e) => e.is_active);
+        if (enrollment) {
+          const program = await db.programs.get(enrollment.program_id);
+          setActiveProgram(program ?? null);
+          setActiveEnrollment(enrollment);
+        } else {
+          setActiveProgram(null);
+          setActiveEnrollment(null);
+        }
       } catch {
         setActiveProgram(null);
+        setActiveEnrollment(null);
       }
     })();
   }
@@ -126,16 +149,34 @@ export default function Workout() {
         onFinished={handleWorkoutFinished}
       />
     );
-  } else if (activeProgram && !showAdHoc) {
-    content = (
-      <TodayScreen
-        program={activeProgram}
-        onStartWorkout={(templateId, weekType, name, programId) =>
-          void handleStart(templateId, weekType, name, programId)
-        }
-        onAdHoc={() => setShowAdHoc(true)}
-      />
-    );
+  } else if (activeProgram && activeEnrollment && !showAdHoc) {
+    content =
+      activeProgram.program_type === "phased" ? (
+        <PhasedTodayScreen
+          program={activeProgram}
+          enrollment={activeEnrollment}
+          onStartWorkout={(phaseWorkoutId, programId, workoutName) =>
+            void handleStart(
+              null,
+              "normal",
+              workoutName,
+              programId,
+              phaseWorkoutId,
+              activeEnrollment.id,
+            )
+          }
+          onAdHoc={() => setShowAdHoc(true)}
+        />
+      ) : (
+        <TodayScreen
+          program={activeProgram}
+          enrollment={activeEnrollment}
+          onStartWorkout={(templateId, weekType, name, programId) =>
+            void handleStart(templateId, weekType, name, programId, undefined, activeEnrollment.id)
+          }
+          onAdHoc={() => setShowAdHoc(true)}
+        />
+      );
   } else if (showAdHoc) {
     content = (
       <WorkoutSetup

@@ -1,9 +1,22 @@
-from uuid import UUID
+from uuid import UUID, uuid5, NAMESPACE_URL
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Exercise, ExerciseSubstitution, TemplateExercise, WorkoutTemplate
+from app.models import (
+    Exercise,
+    ExerciseSubstitution,
+    Program,
+    ProgramRoutine,
+    TemplateExercise,
+    UserProgram,
+    WorkoutTemplate,
+)
+
+
+def _shared_id(key: str) -> str:
+    """Generate a deterministic UUID for shared/seeded data."""
+    return str(uuid5(NAMESPACE_URL, f"shared:{key}"))
 
 exercises_data = [
     # ── Upper Day ──
@@ -183,12 +196,7 @@ exercises_data = [
         "notes": "To keep tension on the hamstrings, stop about 75% of the way to full lockout on each rep (i.e. stay in the bottom 3/4 of the range of motion).",
     },
     {
-        "name": "Dumbell RDL",
-        "muscle_group": "Hamstrings",
-        "equipment": "Dumbbell",
-    },
-    {
-        "name": "DB RDL",
+        "name": "Dumbbell RDL",
         "muscle_group": "Hamstrings",
         "equipment": "Dumbbell",
         "youtube_url": "https://www.youtube.com/watch?v=VRwSgUoj7uI",
@@ -239,7 +247,7 @@ exercises_data = [
     },
     {
         "name": "Cable Crunch",
-        "muscle_group": "Abs",
+        "muscle_group": "Core",
         "equipment": "Cable",
         "youtube_url": "https://www.youtube.com/watch?v=epBrpaGHMcg",
         "notes": "Round your lower back as you crunch. Maintain a mind-muscle connection with your 6-pack.",
@@ -556,6 +564,42 @@ exercises_data = [
         "equipment": "Band",
         "youtube_url": "https://www.youtube.com/watch?v=sOYvvFPYdsU",
     },
+    # ── Timed Exercises ──
+    {
+        "name": "Plank",
+        "muscle_group": "Abs",
+        "equipment": "Bodyweight",
+        "exercise_type": "timed",
+    },
+    {
+        "name": "Side Plank",
+        "muscle_group": "Abs",
+        "equipment": "Bodyweight",
+        "exercise_type": "timed",
+    },
+    {
+        "name": "Dead Hang",
+        "muscle_group": "Back",
+        "equipment": "Bodyweight",
+        "exercise_type": "timed",
+    },
+    {
+        "name": "Wall Sit",
+        "muscle_group": "Quads",
+        "equipment": "Bodyweight",
+        "exercise_type": "timed",
+    },
+    {
+        "name": "Hanging from the Bar",
+        "muscle_group": "Back",
+        "equipment": "Bodyweight",
+        "exercise_type": "timed",
+        "notes": "Grab the bar with an overhand grip, slightly wider than shoulder width. "
+        "Let your body hang fully extended — relax your legs and torso but keep your "
+        "shoulders slightly engaged (don't go fully passive). Breathe slowly and deeply. "
+        "Great for grip strength, shoulder decompression, and lat stretching. "
+        "Progress by adding time or holding a dumbbell between your feet for extra load.",
+    },
 ]
 
 substitutions_data = [
@@ -579,7 +623,7 @@ substitutions_data = [
     ("Lying Leg Curl", "Nordic Ham Curl", 2),
     ("Smith Machine Squat", "DB Bulgarian Split Squat", 1),
     ("Smith Machine Squat", "High-Bar Back Squat", 2),
-    ("Barbell RDL", "DB RDL", 1),
+    ("Barbell RDL", "Dumbbell RDL", 1),
     ("Barbell RDL", "Snatch-Grip RDL", 2),
     ("Leg Extension", "Reverse Nordic", 1),
     ("Leg Extension", "Sissy Squat", 2),
@@ -626,6 +670,8 @@ substitutions_data = [
     ("Machine Hip Adduction", "Copenhagen Hip Adduction", 2),
     ("Machine Hip Abduction", "Cable Hip Abduction", 1),
     ("Machine Hip Abduction", "Lateral Band Walk", 2),
+    # Timed exercises
+    ("Plank", "Side Plank", 1),
 ]
 
 
@@ -656,6 +702,16 @@ async def seed_exercises(db: AsyncSession) -> None:
         )
         db.add(sub)
 
+    await db.commit()
+
+    # Seed Minimalift-specific exercises
+    from app.seed_minimalift import seed_minimalift_exercises
+    await seed_minimalift_exercises(db)
+    await db.commit()
+
+    # Seed Minimalift 5-Day-specific exercises
+    from app.seed_minimalift_5day import seed_minimalift_5day_exercises
+    await seed_minimalift_5day_exercises(db)
     await db.commit()
 
 
@@ -772,9 +828,16 @@ templates_data = [
 ]
 
 
-async def clone_default_templates(db: AsyncSession, user_id: str | UUID) -> None:
-    """Create copies of the 5 default workout templates for a new user."""
-    # Build exercise name → id lookup from global (user_id=NULL) exercises
+SHARED_JN_PROGRAM_ID = _shared_id("jn:program")
+
+
+async def seed_default_program(db: AsyncSession) -> None:
+    """Create the shared Jeff Nippard 5-Day program blueprint (idempotent)."""
+    existing = await db.execute(select(Program).where(Program.id == SHARED_JN_PROGRAM_ID))
+    if existing.scalar_one_or_none() is not None:
+        return
+
+    # Build exercise name → id lookup from global exercises
     result = await db.execute(
         select(Exercise).where(Exercise.user_id.is_(None))
     )
@@ -782,10 +845,18 @@ async def clone_default_templates(db: AsyncSession, user_id: str | UUID) -> None
         e.name: e.id for e in result.scalars().all()
     }
 
+    template_ids: list[str] = []
+
     for tpl_data in templates_data:
-        template = WorkoutTemplate(user_id=str(user_id), name=tpl_data["name"])
+        tpl_id = _shared_id(f"jn:template:{tpl_data['name']}")
+        template = WorkoutTemplate(
+            id=tpl_id,
+            user_id=None,  # shared
+            name=tpl_data["name"],
+        )
         db.add(template)
-        await db.flush()  # populate template.id
+        await db.flush()
+        template_ids.append(tpl_id)
 
         for week_type in ("normal", "deload"):
             for ex in tpl_data[week_type]:
@@ -797,8 +868,10 @@ async def clone_default_templates(db: AsyncSession, user_id: str | UUID) -> None
                 if exercise_id is None:
                     continue
 
+                te_id = _shared_id(f"jn:te:{tpl_data['name']}:{week_type}:{order}")
                 te = TemplateExercise(
-                    template_id=template.id,
+                    id=te_id,
+                    template_id=tpl_id,
                     exercise_id=exercise_id,
                     week_type=week_type,
                     order=order,
@@ -814,5 +887,65 @@ async def clone_default_templates(db: AsyncSession, user_id: str | UUID) -> None
                     warmup_sets=warmup_sets,
                 )
                 db.add(te)
+
+    # Create the shared program with all 5 templates as routines
+    program = Program(
+        id=SHARED_JN_PROGRAM_ID,
+        user_id=None,  # shared
+        name="Jeff Nippard 5 Day Program",
+        deload_every_n_weeks=6,
+    )
+    db.add(program)
+    await db.flush()
+
+    for order, tid in enumerate(template_ids):
+        routine_id = _shared_id(f"jn:routine:{order}")
+        db.add(ProgramRoutine(
+            id=routine_id,
+            program_id=SHARED_JN_PROGRAM_ID,
+            template_id=tid,
+            order=order,
+        ))
+
+    await db.commit()
+
+
+async def enroll_user_in_defaults(db: AsyncSession, user_id: str | UUID) -> None:
+    """Create UserProgram enrollments for a new user in shared programs."""
+    from app.seed_minimalift import SHARED_MINIMALIFT_PROGRAM_ID
+    from app.seed_minimalift_5day import SHARED_MINIMALIFT_5DAY_PROGRAM_ID
+
+    uid = str(user_id)
+
+    # Only enroll if the shared programs exist
+    jn_exists = await db.execute(
+        select(Program).where(Program.id == SHARED_JN_PROGRAM_ID)
+    )
+    if jn_exists.scalar_one_or_none():
+        db.add(UserProgram(
+            user_id=uid,
+            program_id=SHARED_JN_PROGRAM_ID,
+            is_active=True,
+        ))
+
+    ml_exists = await db.execute(
+        select(Program).where(Program.id == SHARED_MINIMALIFT_PROGRAM_ID)
+    )
+    if ml_exists.scalar_one_or_none():
+        db.add(UserProgram(
+            user_id=uid,
+            program_id=SHARED_MINIMALIFT_PROGRAM_ID,
+            is_active=False,
+        ))
+
+    ml5_exists = await db.execute(
+        select(Program).where(Program.id == SHARED_MINIMALIFT_5DAY_PROGRAM_ID)
+    )
+    if ml5_exists.scalar_one_or_none():
+        db.add(UserProgram(
+            user_id=uid,
+            program_id=SHARED_MINIMALIFT_5DAY_PROGRAM_ID,
+            is_active=False,
+        ))
 
     await db.flush()

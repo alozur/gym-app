@@ -67,7 +67,7 @@ vi.mock("react-router-dom", async (importOriginal) => {
 });
 
 import { db } from "@/db/index";
-import type { DbProgram, DbProgramRoutine } from "@/db/schema";
+import type { DbProgram, DbProgramRoutine, DbUserProgram } from "@/db/schema";
 import Programs from "@/pages/Programs";
 
 const samplePrograms: DbProgram[] = [
@@ -75,12 +75,8 @@ const samplePrograms: DbProgram[] = [
     id: "prog-1",
     user_id: "u1",
     name: "Push Pull Legs",
+    program_type: "rotating",
     deload_every_n_weeks: 6,
-    is_active: true,
-    started_at: "2024-01-01T00:00:00Z",
-    current_routine_index: 0,
-    weeks_completed: 2,
-    last_workout_at: null,
     created_at: "2024-01-01T00:00:00Z",
     sync_status: "synced",
   },
@@ -88,10 +84,39 @@ const samplePrograms: DbProgram[] = [
     id: "prog-2",
     user_id: "u1",
     name: "Upper Lower",
+    program_type: "rotating",
     deload_every_n_weeks: 4,
+    created_at: "2024-01-02T00:00:00Z",
+    sync_status: "synced",
+  },
+];
+
+const sampleEnrollments: DbUserProgram[] = [
+  {
+    id: "up-1",
+    user_id: "u1",
+    program_id: "prog-1",
+    is_active: true,
+    started_at: "2024-01-01T00:00:00Z",
+    current_routine_index: 0,
+    current_phase_index: 0,
+    current_week_in_phase: 0,
+    current_day_index: 0,
+    weeks_completed: 2,
+    last_workout_at: null,
+    created_at: "2024-01-01T00:00:00Z",
+    sync_status: "synced",
+  },
+  {
+    id: "up-2",
+    user_id: "u1",
+    program_id: "prog-2",
     is_active: false,
     started_at: null,
     current_routine_index: 0,
+    current_phase_index: 0,
+    current_week_in_phase: 0,
+    current_day_index: 0,
     weeks_completed: 0,
     last_workout_at: null,
     created_at: "2024-01-02T00:00:00Z",
@@ -152,6 +177,7 @@ describe("Programs", () => {
 
   it("renders program names when programs exist", async () => {
     await db.programs.bulkAdd(samplePrograms);
+    await db.userPrograms.bulkAdd(sampleEnrollments);
     await db.programRoutines.bulkAdd(sampleRoutines);
 
     renderPrograms();
@@ -165,6 +191,7 @@ describe("Programs", () => {
 
   it("shows Active badge for active program", async () => {
     await db.programs.bulkAdd(samplePrograms);
+    await db.userPrograms.bulkAdd(sampleEnrollments);
     await db.programRoutines.bulkAdd(sampleRoutines);
 
     renderPrograms();
@@ -176,6 +203,7 @@ describe("Programs", () => {
 
   it("shows routine count badge", async () => {
     await db.programs.bulkAdd(samplePrograms);
+    await db.userPrograms.bulkAdd(sampleEnrollments);
     await db.programRoutines.bulkAdd(sampleRoutines);
 
     renderPrograms();

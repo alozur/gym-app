@@ -15,6 +15,7 @@ from app.models import (
     Program,
     ProgramRoutine,
     User,
+    UserProgram,
     WorkoutSession,
     WorkoutSet,
 )
@@ -66,6 +67,8 @@ async def create_session(
         user_id=current_user.id,
         template_id=body.template_id,
         program_id=body.program_id,
+        phase_workout_id=body.phase_workout_id,
+        user_program_id=body.user_program_id,
         year_week=body.year_week,
         week_type=body.week_type,
         started_at=datetime.utcnow(),
@@ -128,19 +131,22 @@ async def update_session(
         session.finished_at = body.finished_at
 
         # Advance program rotation when finishing a program-linked session
-        if session.program_id:
-            prog_result = await db.execute(
-                select(Program)
-                .where(Program.id == session.program_id)
-                .options(selectinload(Program.routines))
+        if session.user_program_id:
+            up_result = await db.execute(
+                select(UserProgram)
+                .where(UserProgram.id == session.user_program_id)
+                .options(
+                    selectinload(UserProgram.program).selectinload(Program.routines),
+                )
             )
-            program = prog_result.scalar_one_or_none()
-            if program and program.routines:
-                program.current_routine_index += 1
-                if program.current_routine_index >= len(program.routines):
-                    program.current_routine_index = 0
-                    program.weeks_completed += 1
-                program.last_workout_at = datetime.utcnow()
+            enrollment = up_result.scalar_one_or_none()
+            if enrollment and enrollment.program.program_type == "rotating" and enrollment.program.routines:
+                enrollment.current_routine_index += 1
+                if enrollment.current_routine_index >= len(enrollment.program.routines):
+                    enrollment.current_routine_index = 0
+                    enrollment.weeks_completed += 1
+                enrollment.last_workout_at = datetime.utcnow()
+            # Phased advancement is handled via /advance-phased endpoint
 
     await db.commit()
     await db.refresh(session)

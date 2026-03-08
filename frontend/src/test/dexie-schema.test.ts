@@ -11,6 +11,7 @@ import type {
   DbExerciseProgress,
   DbProgram,
   DbProgramRoutine,
+  DbUserProgram,
 } from "@/db/schema";
 
 let testDb: GymTrackerDB;
@@ -24,15 +25,20 @@ beforeEach(async () => {
 });
 
 describe("GymTrackerDB schema", () => {
-  it("creates all 10 tables", () => {
+  it("creates all 15 tables", () => {
     const tableNames = testDb.tables.map((t) => t.name).sort();
     expect(tableNames).toEqual([
       "exerciseProgress",
       "exerciseSubstitutions",
       "exercises",
+      "phaseWorkoutExercises",
+      "phaseWorkoutSections",
+      "phaseWorkouts",
+      "programPhases",
       "programRoutines",
       "programs",
       "templateExercises",
+      "userPrograms",
       "users",
       "workoutSessions",
       "workoutSets",
@@ -63,6 +69,7 @@ describe("GymTrackerDB schema", () => {
       muscle_group: "Chest",
       equipment: "Barbell",
       is_custom: false,
+      exercise_type: "reps",
       youtube_url: null,
       notes: null,
       created_at: "2024-01-01T00:00:00Z",
@@ -139,6 +146,8 @@ describe("GymTrackerDB schema", () => {
       finished_at: null,
       notes: null,
       program_id: null,
+      phase_workout_id: null,
+      user_program_id: null,
       sync_status: "pending",
     };
 
@@ -158,6 +167,8 @@ describe("GymTrackerDB schema", () => {
       finished_at: null,
       notes: null,
       program_id: "prog-1",
+      phase_workout_id: null,
+      user_program_id: "up-1",
       sync_status: "pending",
     };
 
@@ -165,6 +176,7 @@ describe("GymTrackerDB schema", () => {
     const retrieved = await testDb.workoutSessions.get("sess-2");
     expect(retrieved).toEqual(session);
     expect(retrieved?.program_id).toBe("prog-1");
+    expect(retrieved?.user_program_id).toBe("up-1");
   });
 
   it("can add and retrieve a program", async () => {
@@ -172,12 +184,8 @@ describe("GymTrackerDB schema", () => {
       id: "prog-1",
       user_id: "user-1",
       name: "Push Pull Legs",
+      program_type: "rotating",
       deload_every_n_weeks: 6,
-      is_active: true,
-      started_at: "2024-01-01T00:00:00Z",
-      current_routine_index: 0,
-      weeks_completed: 0,
-      last_workout_at: null,
       created_at: "2024-01-01T00:00:00Z",
       sync_status: "pending",
     };
@@ -185,6 +193,45 @@ describe("GymTrackerDB schema", () => {
     await testDb.programs.add(program);
     const retrieved = await testDb.programs.get("prog-1");
     expect(retrieved).toEqual(program);
+  });
+
+  it("can add and retrieve a shared program (null user_id)", async () => {
+    const program: DbProgram = {
+      id: "prog-shared",
+      user_id: null,
+      name: "Shared Program",
+      program_type: "phased",
+      deload_every_n_weeks: 4,
+      created_at: "2024-01-01T00:00:00Z",
+      sync_status: "synced",
+    };
+
+    await testDb.programs.add(program);
+    const retrieved = await testDb.programs.get("prog-shared");
+    expect(retrieved).toEqual(program);
+    expect(retrieved?.user_id).toBeNull();
+  });
+
+  it("can add and retrieve a user program enrollment", async () => {
+    const enrollment: DbUserProgram = {
+      id: "up-1",
+      user_id: "user-1",
+      program_id: "prog-1",
+      is_active: true,
+      started_at: "2024-01-01T00:00:00Z",
+      current_routine_index: 2,
+      current_phase_index: 0,
+      current_week_in_phase: 1,
+      current_day_index: 0,
+      weeks_completed: 3,
+      last_workout_at: "2024-01-15T10:00:00Z",
+      created_at: "2024-01-01T00:00:00Z",
+      sync_status: "pending",
+    };
+
+    await testDb.userPrograms.add(enrollment);
+    const retrieved = await testDb.userPrograms.get("up-1");
+    expect(retrieved).toEqual(enrollment);
   });
 
   it("can add and retrieve a program routine", async () => {
@@ -246,6 +293,7 @@ describe("GymTrackerDB schema", () => {
         muscle_group: "Chest",
         equipment: "Barbell",
         is_custom: false,
+        exercise_type: "reps",
         youtube_url: null,
         notes: null,
         created_at: "2024-01-01T00:00:00Z",
@@ -258,6 +306,7 @@ describe("GymTrackerDB schema", () => {
         muscle_group: "Legs",
         equipment: "Barbell",
         is_custom: false,
+        exercise_type: "reps",
         youtube_url: null,
         notes: null,
         created_at: "2024-01-01T00:00:00Z",
@@ -270,6 +319,7 @@ describe("GymTrackerDB schema", () => {
         muscle_group: "Back",
         equipment: "Barbell",
         is_custom: false,
+        exercise_type: "reps",
         youtube_url: null,
         notes: null,
         created_at: "2024-01-01T00:00:00Z",

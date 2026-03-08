@@ -55,6 +55,7 @@ export function ExercisePicker({ onSelect, excludeIds = [] }: ExercisePickerProp
           is_custom: e.is_custom,
           youtube_url: e.youtube_url,
           notes: e.notes,
+          exercise_type: e.exercise_type ?? "reps",
           created_at: e.created_at,
           sync_status: "synced" as const,
         }));

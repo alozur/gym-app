@@ -1,4 +1,3 @@
-import sqlalchemy
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -13,23 +12,27 @@ from app.routes.sessions import router as sessions_router
 from app.routes.stats import router as stats_router
 from app.routes.sync import router as sync_router
 from app.routes.templates import router as templates_router
-from app.seed import seed_exercises
+from app.seed import seed_default_program, seed_exercises
+from app.seed_minimalift import seed_minimalift_program
+from app.seed_minimalift_5day import seed_minimalift_5day_program
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
-        print(f"[LIFESPAN] Connecting to DB, schema={settings.DB_SCHEMA}")
+        print("[LIFESPAN] Connecting to DB")
         async with engine.begin() as conn:
-            await conn.execute(
-                sqlalchemy.text(f"CREATE SCHEMA IF NOT EXISTS {settings.DB_SCHEMA}")
-            )
-            print("[LIFESPAN] Schema created/verified")
             await conn.run_sync(Base.metadata.create_all)
             print("[LIFESPAN] Tables created")
         async with async_session() as db:
             await seed_exercises(db)
-            print("[LIFESPAN] Seed complete")
+            print("[LIFESPAN] Exercises seeded")
+            await seed_default_program(db)
+            print("[LIFESPAN] JN program seeded")
+            await seed_minimalift_program(db)
+            print("[LIFESPAN] Minimalift 3-Day program seeded")
+            await seed_minimalift_5day_program(db)
+            print("[LIFESPAN] Minimalift 5-Day program seeded")
     except Exception as e:
         print(f"[LIFESPAN] ERROR: {e}")
         raise

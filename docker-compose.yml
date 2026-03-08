@@ -5,7 +5,6 @@ services:
     restart: unless-stopped
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_shared:5432/${POSTGRES_DB}?ssl=disable
-      - DB_SCHEMA=${DB_SCHEMA:-gym}
       - JWT_SECRET=${JWT_SECRET}
       - CORS_ORIGINS=https://gym.alonsozurera.synology.me,http://localhost:3080
     networks:

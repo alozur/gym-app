@@ -15,6 +15,7 @@ import Register from "@/pages/Register";
 import TemplateBuilder from "@/pages/TemplateBuilder";
 import Programs from "@/pages/Programs";
 import ProgramBuilder from "@/pages/ProgramBuilder";
+import ProgramDetail from "@/pages/ProgramDetail";
 import Workout from "@/pages/Workout";
 import ExerciseLog from "@/pages/ExerciseLog";
 import Dashboard from "@/pages/Dashboard";
@@ -61,7 +62,7 @@ function AppContent() {
           path="/programs/:id"
           element={
             <ProtectedRoute>
-              <ProgramBuilder />
+              <ProgramDetail />
             </ProtectedRoute>
           }
         />

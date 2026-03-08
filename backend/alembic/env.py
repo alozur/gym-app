@@ -8,10 +8,18 @@ from alembic import context
 
 from app.database import Base, settings
 from app.models import (  # noqa: F401 - ensure all models are registered
+    Exercise,
     ExerciseProgress,
     ExerciseSubstitution,
+    PhaseWorkout,
+    PhaseWorkoutExercise,
+    PhaseWorkoutSection,
+    Program,
+    ProgramPhase,
+    ProgramRoutine,
     TemplateExercise,
     User,
+    UserProgram,
     WorkoutSession,
     WorkoutSet,
     WorkoutTemplate,
@@ -42,7 +50,10 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+    )
 
     with context.begin_transaction():
         context.run_migrations()

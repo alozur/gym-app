@@ -58,6 +58,7 @@ async def create_exercise(
         is_custom=True,
         youtube_url=body.youtube_url,
         notes=body.notes,
+        exercise_type=body.exercise_type,
     )
     db.add(exercise)
     await db.commit()
@@ -128,6 +129,7 @@ async def update_exercise(
     exercise.equipment = body.equipment
     exercise.youtube_url = body.youtube_url
     exercise.notes = body.notes
+    exercise.exercise_type = body.exercise_type
     await db.commit()
     await db.refresh(exercise)
     return exercise

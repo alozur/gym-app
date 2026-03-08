@@ -10,6 +10,8 @@ import type {
   TemplateDetailResponse,
   ProgramResponse,
   ProgramDetailResponse,
+  ProgramPhaseDetailResponse,
+  UserProgramResponse,
   SessionResponse,
   SessionDetailResponse,
   ProgressDetailResponse,
@@ -33,6 +35,7 @@ export async function hydrateFromApi(userId: string): Promise<void> {
         is_custom: e.is_custom,
         youtube_url: e.youtube_url,
         notes: e.notes,
+        exercise_type: e.exercise_type ?? "reps",
         created_at: e.created_at,
         sync_status: "synced" as const,
       })),
@@ -58,7 +61,7 @@ export async function hydrateFromApi(userId: string): Promise<void> {
       await db.workoutTemplates.bulkPut(
         templates.map((t) => ({
           id: t.id,
-          user_id: userId,
+          user_id: null, // Shared templates have null user_id
           name: t.name,
           created_at: t.created_at,
           sync_status: "synced" as const,
@@ -105,14 +108,10 @@ export async function hydrateFromApi(userId: string): Promise<void> {
       await db.programs.bulkPut(
         programs.map((p) => ({
           id: p.id,
-          user_id: userId,
+          user_id: p.user_id ?? null,
           name: p.name,
+          program_type: (p.program_type ?? "rotating") as "rotating" | "phased",
           deload_every_n_weeks: p.deload_every_n_weeks,
-          is_active: p.is_active,
-          started_at: p.started_at,
-          current_routine_index: p.current_routine_index,
-          weeks_completed: p.weeks_completed,
-          last_workout_at: p.last_workout_at,
           created_at: p.created_at,
           sync_status: "synced" as const,
         })),
@@ -137,6 +136,106 @@ export async function hydrateFromApi(userId: string): Promise<void> {
       if (routineRecords.length > 0) {
         await db.programRoutines.bulkPut(routineRecords);
       }
+
+      // Hydrate phased program data
+      for (const p of programs) {
+        if ((p.program_type ?? "rotating") !== "phased") continue;
+
+        const phases = await api.get<ProgramPhaseDetailResponse[]>(
+          `/programs/${p.id}/phases`,
+        );
+
+        await db.programPhases.bulkPut(
+          phases.map((ph) => ({
+            id: ph.id,
+            program_id: p.id,
+            name: ph.name,
+            description: ph.description,
+            order: ph.order,
+            duration_weeks: ph.duration_weeks,
+            sync_status: "synced" as const,
+          })),
+        );
+
+        const workoutRecords = phases.flatMap((ph) =>
+          ph.workouts.map((w) => ({
+            id: w.id,
+            phase_id: ph.id,
+            name: w.name,
+            day_index: w.day_index,
+            week_number: w.week_number,
+            sync_status: "synced" as const,
+          })),
+        );
+        if (workoutRecords.length > 0) {
+          await db.phaseWorkouts.bulkPut(workoutRecords);
+        }
+
+        const sectionRecords = phases.flatMap((ph) =>
+          ph.workouts.flatMap((w) =>
+            w.sections.map((s) => ({
+              id: s.id,
+              workout_id: w.id,
+              name: s.name,
+              order: s.order,
+              notes: s.notes,
+              sync_status: "synced" as const,
+            })),
+          ),
+        );
+        if (sectionRecords.length > 0) {
+          await db.phaseWorkoutSections.bulkPut(sectionRecords);
+        }
+
+        const exerciseRecords = phases.flatMap((ph) =>
+          ph.workouts.flatMap((w) =>
+            w.sections.flatMap((s) =>
+              s.exercises.map((ex) => ({
+                id: ex.id,
+                section_id: s.id,
+                exercise_id: ex.exercise_id,
+                order: ex.order,
+                working_sets: ex.working_sets,
+                reps_display: ex.reps_display,
+                rest_period: ex.rest_period,
+                intensity_technique: ex.intensity_technique,
+                warmup_sets: ex.warmup_sets,
+                notes: ex.notes,
+                substitute1_exercise_id: ex.substitute1_exercise_id,
+                substitute2_exercise_id: ex.substitute2_exercise_id,
+                sync_status: "synced" as const,
+              })),
+            ),
+          ),
+        );
+        if (exerciseRecords.length > 0) {
+          await db.phaseWorkoutExercises.bulkPut(exerciseRecords);
+        }
+      }
+    }
+
+    // Fetch user program enrollments
+    const enrollments = await api.get<UserProgramResponse[]>(
+      "/programs/enrollments",
+    );
+    if (enrollments.length > 0) {
+      await db.userPrograms.bulkPut(
+        enrollments.map((e) => ({
+          id: e.id,
+          user_id: e.user_id,
+          program_id: e.program_id,
+          is_active: e.is_active,
+          started_at: e.started_at,
+          current_routine_index: e.current_routine_index,
+          current_phase_index: e.current_phase_index ?? 0,
+          current_week_in_phase: e.current_week_in_phase ?? 0,
+          current_day_index: e.current_day_index ?? 0,
+          weeks_completed: e.weeks_completed,
+          last_workout_at: e.last_workout_at,
+          created_at: e.created_at,
+          sync_status: "synced" as const,
+        })),
+      );
     }
 
     // Fetch sessions and their sets
@@ -153,6 +252,8 @@ export async function hydrateFromApi(userId: string): Promise<void> {
           finished_at: s.finished_at,
           notes: s.notes,
           program_id: s.program_id,
+          phase_workout_id: s.phase_workout_id ?? null,
+          user_program_id: s.user_program_id ?? null,
           sync_status: "synced" as const,
         })),
       );

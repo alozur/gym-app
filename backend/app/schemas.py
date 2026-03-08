@@ -1,6 +1,8 @@
 from datetime import datetime
 from decimal import Decimal
 
+from typing import Literal
+
 from pydantic import BaseModel, EmailStr, Field, model_validator
 
 
@@ -91,6 +93,7 @@ class ExerciseCreate(BaseModel):
     equipment: str | None = None
     youtube_url: str | None = None
     notes: str | None = None
+    exercise_type: Literal["reps", "timed"] = "reps"
 
 
 class ExerciseResponse(BaseModel):
@@ -101,6 +104,7 @@ class ExerciseResponse(BaseModel):
     is_custom: bool
     youtube_url: str | None = None
     notes: str | None = None
+    exercise_type: str
     created_at: datetime
     substitutions: list[SubstitutionResponse] = []
 
@@ -216,6 +220,8 @@ class SetUpdate(BaseModel):
 class SessionCreate(BaseModel):
     template_id: str | None = None
     program_id: str | None = None
+    phase_workout_id: str | None = None
+    user_program_id: str | None = None
     week_type: str = Field(..., min_length=1, max_length=20)
     year_week: str | None = None
 
@@ -229,6 +235,8 @@ class SessionResponse(BaseModel):
     id: str
     template_id: str | None = None
     program_id: str | None = None
+    phase_workout_id: str | None = None
+    user_program_id: str | None = None
     year_week: str | None = None
     week_type: str
     started_at: datetime
@@ -243,6 +251,8 @@ class SessionDetailResponse(BaseModel):
     id: str
     template_id: str | None = None
     program_id: str | None = None
+    phase_workout_id: str | None = None
+    user_program_id: str | None = None
     year_week: str | None = None
     week_type: str
     started_at: datetime
@@ -298,6 +308,8 @@ class SyncSessionData(BaseModel):
     id: str
     template_id: str | None = None
     program_id: str | None = None
+    phase_workout_id: str | None = None
+    user_program_id: str | None = None
     year_week: str | None = None
     week_type: str
     started_at: datetime
@@ -364,13 +376,11 @@ class ProgramCreate(BaseModel):
 
 class ProgramResponse(BaseModel):
     id: str
+    user_id: str | None = None
     name: str
+    program_type: str = "rotating"
     deload_every_n_weeks: int
-    is_active: bool
-    started_at: datetime | None = None
-    current_routine_index: int
-    weeks_completed: int
-    last_workout_at: datetime | None = None
+    is_shared: bool = False
     created_at: datetime
     routine_count: int = 0
 
@@ -378,21 +388,21 @@ class ProgramResponse(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def compute_routine_count(cls, data: object) -> object:
+    def compute_fields(cls, data: object) -> object:
         if hasattr(data, "routines"):
             data.routine_count = len(data.routines)
+        if hasattr(data, "user_id"):
+            data.is_shared = data.user_id is None
         return data
 
 
 class ProgramDetailResponse(BaseModel):
     id: str
+    user_id: str | None = None
     name: str
+    program_type: str = "rotating"
     deload_every_n_weeks: int
-    is_active: bool
-    started_at: datetime | None = None
-    current_routine_index: int
-    weeks_completed: int
-    last_workout_at: datetime | None = None
+    is_shared: bool = False
     created_at: datetime
     routine_count: int = 0
     routines: list[ProgramRoutineResponse] = []
@@ -401,14 +411,46 @@ class ProgramDetailResponse(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def compute_routine_count(cls, data: object) -> object:
+    def compute_fields(cls, data: object) -> object:
         if hasattr(data, "routines"):
             data.routine_count = len(data.routines)
+        if hasattr(data, "user_id"):
+            data.is_shared = data.user_id is None
+        return data
+
+
+class UserProgramResponse(BaseModel):
+    id: str
+    user_id: str
+    program_id: str
+    program_name: str | None = None
+    program_type: str | None = None
+    deload_every_n_weeks: int | None = None
+    is_active: bool
+    started_at: datetime | None = None
+    current_routine_index: int
+    current_phase_index: int = 0
+    current_week_in_phase: int = 0
+    current_day_index: int = 0
+    weeks_completed: int
+    last_workout_at: datetime | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def extract_program_info(cls, data: object) -> object:
+        if hasattr(data, "program") and data.program:
+            data.program_name = data.program.name
+            data.program_type = data.program.program_type
+            data.deload_every_n_weeks = data.program.deload_every_n_weeks
         return data
 
 
 class TodayResponse(BaseModel):
     program: ProgramResponse
+    user_program: UserProgramResponse
     current_routine: ProgramRoutineResponse | None = None
     template_name: str | None = None
     template_exercises: list[TemplateExerciseResponse] = []
@@ -416,3 +458,83 @@ class TodayResponse(BaseModel):
     week_number: int
     is_deload: bool
     next_routine_name: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Phased program schemas
+# ---------------------------------------------------------------------------
+
+
+class PhaseWorkoutExerciseResponse(BaseModel):
+    id: str
+    exercise_id: str
+    exercise_name: str | None = None
+    order: int
+    working_sets: int
+    reps_display: str
+    rest_period: str | None = None
+    intensity_technique: str | None = None
+    warmup_sets: int
+    notes: str | None = None
+    substitute1_exercise_id: str | None = None
+    substitute1_exercise_name: str | None = None
+    substitute2_exercise_id: str | None = None
+    substitute2_exercise_name: str | None = None
+
+    model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def extract_names(cls, data: object) -> object:
+        if hasattr(data, "exercise") and data.exercise:
+            data.exercise_name = data.exercise.name
+        if hasattr(data, "substitute1") and data.substitute1:
+            data.substitute1_exercise_name = data.substitute1.name
+        if hasattr(data, "substitute2") and data.substitute2:
+            data.substitute2_exercise_name = data.substitute2.name
+        return data
+
+
+class PhaseWorkoutSectionResponse(BaseModel):
+    id: str
+    name: str
+    order: int
+    notes: str | None = None
+    exercises: list[PhaseWorkoutExerciseResponse] = []
+
+    model_config = {"from_attributes": True}
+
+
+class PhaseWorkoutResponse(BaseModel):
+    id: str
+    name: str
+    day_index: int
+    week_number: int
+    sections: list[PhaseWorkoutSectionResponse] = []
+
+    model_config = {"from_attributes": True}
+
+
+class ProgramPhaseResponse(BaseModel):
+    id: str
+    name: str
+    description: str | None = None
+    order: int
+    duration_weeks: int
+
+    model_config = {"from_attributes": True}
+
+
+class ProgramPhaseDetailResponse(ProgramPhaseResponse):
+    workouts: list[PhaseWorkoutResponse] = []
+
+
+class PhasedTodayResponse(BaseModel):
+    program: ProgramResponse
+    user_program: UserProgramResponse
+    phase: ProgramPhaseResponse
+    workout: PhaseWorkoutResponse
+    phase_number: int
+    week_in_phase: int
+    day_number: int
+    total_phases: int

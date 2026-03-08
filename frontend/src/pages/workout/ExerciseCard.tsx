@@ -16,7 +16,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { SetRow } from "./SetRow";
-import type { ExerciseEntry, SetEntry, SubstituteExercise } from "./types";
+import type { ExerciseEntry, LastSetInfo, SetEntry, SubstituteExercise } from "./types";
 
 interface ExerciseCardProps {
   entry: ExerciseEntry;
@@ -30,6 +30,8 @@ interface ExerciseCardProps {
     exerciseId: string,
     newExercise: SubstituteExercise,
   ) => void;
+  onAddSet: () => void;
+  onRemoveSet: () => void;
 }
 
 export function ExerciseCard({
@@ -37,6 +39,8 @@ export function ExerciseCard({
   sessionId,
   onUpdateSets,
   onSubstitute,
+  onAddSet,
+  onRemoveSet,
 }: ExerciseCardProps) {
   const [showNotes, setShowNotes] = useState(false);
   const [notesContent, setNotesContent] = useState<string | null>(null);
@@ -52,9 +56,54 @@ export function ExerciseCard({
   // The currently selected slide (for youtube/notes buttons)
   const activeSlide = slides.find((s) => s.id === entry.exerciseId) ?? slides[0];
 
-  const prescriptionText = rx
-    ? `${rx.working_sets}x${rx.min_reps}-${rx.max_reps} @ RPE ${rx.early_set_rpe_min}-${rx.last_set_rpe_max}, Rest: ${rx.rest_period}`
-    : null;
+  const repLabel = entry.exerciseType === "timed" ? "secs" : "reps";
+
+  // Build separate prescription parts for clear display
+  const prescriptionParts: { label: string; value: string; color: string }[] = [];
+  if (entry.repsDisplay) {
+    // Format repsDisplay: "15s" → "15 seconds", "e/s" → "each side"
+    let displayReps = entry.repsDisplay
+      .replace(/\s*e\/s\s*/, "")
+      .trim();
+    if (displayReps.endsWith("s") && /\d+s$/.test(displayReps)) {
+      displayReps = displayReps.slice(0, -1) + " seconds";
+    } else {
+      displayReps += " reps";
+    }
+    const sidesSuffix = entry.isEachSide ? " each side" : "";
+    const setsWord = entry.workingSets.length === 1 ? "set" : "sets";
+    prescriptionParts.push({
+      label: "",
+      value: `${entry.workingSets.length} ${setsWord} x ${displayReps}${sidesSuffix}`,
+      color: "bg-primary/10 text-primary",
+    });
+    if (entry.restPeriod) {
+      prescriptionParts.push({
+        label: "Rest",
+        value: entry.restPeriod,
+        color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+      });
+    }
+  } else if (rx) {
+    const setsWord = rx.working_sets === 1 ? "set" : "sets";
+    prescriptionParts.push({
+      label: "",
+      value: `${rx.working_sets} ${setsWord} x ${rx.min_reps}-${rx.max_reps} ${repLabel}`,
+      color: "bg-primary/10 text-primary",
+    });
+    prescriptionParts.push({
+      label: "RPE",
+      value: `${rx.early_set_rpe_min}-${rx.last_set_rpe_max}`,
+      color: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+    });
+    if (rx.rest_period) {
+      prescriptionParts.push({
+        label: "Rest",
+        value: rx.rest_period,
+        color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+      });
+    }
+  }
 
   const warmupGuidance = entry.warmupCount > 0
     ? calculateWarmupSets(entry.warmupCount, entry.lastMaxWeight)
@@ -84,11 +133,12 @@ export function ExerciseCard({
       const s = updated[i];
       if (s.saved) continue;
 
-      const weight = parseFloat(s.weight);
+      const isTimed = entry.exerciseType === "timed";
+      const weight = parseFloat(s.weight || (isTimed ? "0" : ""));
       const reps = parseInt(s.reps, 10);
       const rpe = s.rpe ? parseFloat(s.rpe) : null;
 
-      if (isNaN(weight) || weight <= 0) continue;
+      if (isNaN(weight) || (isTimed ? weight < 0 : weight <= 0)) continue;
       if (isNaN(reps) || reps <= 0) continue;
 
       const record: DbWorkoutSet = {
@@ -229,11 +279,16 @@ export function ExerciseCard({
             </span>
           )}
 
-          {prescriptionText && (
+          {prescriptionParts.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-1">
-              <span className="inline-block rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                {prescriptionText}
-              </span>
+              {prescriptionParts.map((part) => (
+                <span
+                  key={part.label || "sets"}
+                  className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${part.color}`}
+                >
+                  {part.label ? `${part.label}: ${part.value}` : part.value}
+                </span>
+              ))}
               {rx?.intensity_technique && (
                 <span className="inline-block rounded-full bg-orange-500/10 px-2.5 py-0.5 text-xs font-medium text-orange-600 dark:text-orange-400">
                   {rx.intensity_technique}
@@ -250,7 +305,11 @@ export function ExerciseCard({
               <p className="text-sm font-medium">
                 Warmup <span className="text-muted-foreground font-normal">({entry.warmupCount} sets)</span>
               </p>
-              {warmupGuidance ? (
+              {entry.exerciseType === "timed" ? (
+                <p className="text-xs text-muted-foreground italic">
+                  Warm up as needed
+                </p>
+              ) : warmupGuidance ? (
                 <div className="flex flex-col gap-1">
                   {warmupGuidance.map((ws) => (
                     <div
@@ -272,20 +331,69 @@ export function ExerciseCard({
             </div>
           )}
 
+          {/* Last workout reference */}
+          {entry.lastSets.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <p className="text-sm font-medium">
+                Last Workout
+              </p>
+              <div className="flex flex-col gap-1">
+                {entry.lastSets.map((ls) => (
+                  <div
+                    key={ls.setNumber}
+                    className="flex items-center gap-3 rounded-md bg-muted/50 px-3 py-1.5 text-xs"
+                  >
+                    <span className="w-4 text-center text-muted-foreground">{ls.setNumber}</span>
+                    <span className="font-mono font-medium">{ls.weight} kg</span>
+                    <span className="text-muted-foreground">
+                      {entry.exerciseType === "timed" ? `${ls.reps}s` : `\u00d7 ${ls.reps} reps`}
+                    </span>
+                    {ls.rpe != null && (
+                      <span className="ml-auto text-muted-foreground">RPE {ls.rpe}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Working Sets */}
           <div className="flex flex-col gap-2">
-            <p className="text-sm font-medium">
-              Working Sets
-              {rx && (
-                <span className="text-muted-foreground font-normal">
-                  {" "}({rx.working_sets} sets, {rx.min_reps}-{rx.max_reps} reps)
-                </span>
-              )}
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">
+                Working Sets
+                {rx && (
+                  <span className="text-muted-foreground font-normal">
+                    {" "}({rx.working_sets} sets, {rx.min_reps}-{rx.max_reps} {repLabel})
+                  </span>
+                )}
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={onRemoveSet}
+                  disabled={entry.workingSets.length <= 1}
+                  className="h-7 w-7 flex items-center justify-center rounded-md border text-sm font-medium hover:bg-muted transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                  aria-label="Remove set"
+                >
+                  &minus;
+                </button>
+                <span className="text-xs text-muted-foreground w-5 text-center">{entry.workingSets.length}</span>
+                <button
+                  type="button"
+                  onClick={onAddSet}
+                  className="h-7 w-7 flex items-center justify-center rounded-md border text-sm font-medium hover:bg-muted transition-colors"
+                  aria-label="Add set"
+                >
+                  +
+                </button>
+              </div>
+            </div>
             {entry.workingSets.map((s, i) => (
               <SetRow
                 key={s.id}
                 entry={s}
+                exerciseType={entry.exerciseType}
                 onChange={(field, value) => handleSetChange(i, field, value)}
               />
             ))}
