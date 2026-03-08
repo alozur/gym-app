@@ -16,7 +16,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { SetRow } from "./SetRow";
-import type { ExerciseEntry, LastSetInfo, SetEntry, SubstituteExercise } from "./types";
+import type { ExerciseEntry, SetEntry, SubstituteExercise } from "./types";
 
 interface ExerciseCardProps {
   entry: ExerciseEntry;

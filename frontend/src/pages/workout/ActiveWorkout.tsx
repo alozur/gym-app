@@ -8,7 +8,6 @@ import {
   type DbExercise,
   type DbWorkoutSession,
   type DbExerciseSubstitution,
-  type DbPhaseWorkoutExercise,
 } from "@/db/index";
 import { useAuthContext } from "@/context/AuthContext";
 import { api } from "@/api/client";
