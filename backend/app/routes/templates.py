@@ -22,10 +22,13 @@ async def list_templates(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[WorkoutTemplate]:
-    """List the current user's workout templates."""
+    """List shared and user's workout templates."""
     result = await db.execute(
         select(WorkoutTemplate)
-        .where(WorkoutTemplate.user_id == current_user.id)
+        .where(
+            (WorkoutTemplate.user_id.is_(None))
+            | (WorkoutTemplate.user_id == current_user.id)
+        )
         .order_by(WorkoutTemplate.created_at.desc())
     )
     return list(result.scalars().all())
@@ -94,7 +97,8 @@ async def get_template(
         select(WorkoutTemplate)
         .where(
             WorkoutTemplate.id == template_id,
-            WorkoutTemplate.user_id == current_user.id,
+            (WorkoutTemplate.user_id.is_(None))
+            | (WorkoutTemplate.user_id == current_user.id),
         )
         .options(
             selectinload(WorkoutTemplate.template_exercises).selectinload(
@@ -120,14 +124,20 @@ async def update_template(
     """Update a template, replacing all exercise prescriptions."""
     result = await db.execute(
         select(WorkoutTemplate)
-        .where(
-            WorkoutTemplate.id == template_id,
-            WorkoutTemplate.user_id == current_user.id,
-        )
+        .where(WorkoutTemplate.id == template_id)
         .options(selectinload(WorkoutTemplate.template_exercises))
     )
     template = result.scalar_one_or_none()
     if not template:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Template not found"
+        )
+    if template.user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot edit a shared template",
+        )
+    if template.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Template not found"
         )
@@ -181,13 +191,19 @@ async def delete_template(
 ) -> dict[str, str]:
     """Delete a template and all its exercise prescriptions."""
     result = await db.execute(
-        select(WorkoutTemplate).where(
-            WorkoutTemplate.id == template_id,
-            WorkoutTemplate.user_id == current_user.id,
-        )
+        select(WorkoutTemplate).where(WorkoutTemplate.id == template_id)
     )
     template = result.scalar_one_or_none()
     if not template:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Template not found"
+        )
+    if template.user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot delete a shared template",
+        )
+    if template.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Template not found"
         )

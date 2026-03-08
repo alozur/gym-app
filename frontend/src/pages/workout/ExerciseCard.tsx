@@ -57,9 +57,53 @@ export function ExerciseCard({
   const activeSlide = slides.find((s) => s.id === entry.exerciseId) ?? slides[0];
 
   const repLabel = entry.exerciseType === "timed" ? "secs" : "reps";
-  const prescriptionText = rx
-    ? `${rx.working_sets}x${rx.min_reps}-${rx.max_reps} ${repLabel} @ RPE ${rx.early_set_rpe_min}-${rx.last_set_rpe_max}, Rest: ${rx.rest_period}`
-    : null;
+
+  // Build separate prescription parts for clear display
+  const prescriptionParts: { label: string; value: string; color: string }[] = [];
+  if (entry.repsDisplay) {
+    // Format repsDisplay: "15s" → "15 seconds", "e/s" → "each side"
+    let displayReps = entry.repsDisplay
+      .replace(/\s*e\/s\s*/, "")
+      .trim();
+    if (displayReps.endsWith("s") && /\d+s$/.test(displayReps)) {
+      displayReps = displayReps.slice(0, -1) + " seconds";
+    } else {
+      displayReps += " reps";
+    }
+    const sidesSuffix = entry.isEachSide ? " each side" : "";
+    const setsWord = entry.workingSets.length === 1 ? "set" : "sets";
+    prescriptionParts.push({
+      label: "",
+      value: `${entry.workingSets.length} ${setsWord} x ${displayReps}${sidesSuffix}`,
+      color: "bg-primary/10 text-primary",
+    });
+    if (entry.restPeriod) {
+      prescriptionParts.push({
+        label: "Rest",
+        value: entry.restPeriod,
+        color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+      });
+    }
+  } else if (rx) {
+    const setsWord = rx.working_sets === 1 ? "set" : "sets";
+    prescriptionParts.push({
+      label: "",
+      value: `${rx.working_sets} ${setsWord} x ${rx.min_reps}-${rx.max_reps} ${repLabel}`,
+      color: "bg-primary/10 text-primary",
+    });
+    prescriptionParts.push({
+      label: "RPE",
+      value: `${rx.early_set_rpe_min}-${rx.last_set_rpe_max}`,
+      color: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+    });
+    if (rx.rest_period) {
+      prescriptionParts.push({
+        label: "Rest",
+        value: rx.rest_period,
+        color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+      });
+    }
+  }
 
   const warmupGuidance = entry.warmupCount > 0
     ? calculateWarmupSets(entry.warmupCount, entry.lastMaxWeight)
@@ -235,11 +279,16 @@ export function ExerciseCard({
             </span>
           )}
 
-          {prescriptionText && (
+          {prescriptionParts.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-1">
-              <span className="inline-block rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                {prescriptionText}
-              </span>
+              {prescriptionParts.map((part) => (
+                <span
+                  key={part.label || "sets"}
+                  className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${part.color}`}
+                >
+                  {part.label ? `${part.label}: ${part.value}` : part.value}
+                </span>
+              ))}
               {rx?.intensity_technique && (
                 <span className="inline-block rounded-full bg-orange-500/10 px-2.5 py-0.5 text-xs font-medium text-orange-600 dark:text-orange-400">
                   {rx.intensity_technique}

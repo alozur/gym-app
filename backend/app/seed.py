@@ -1,4 +1,4 @@
-from uuid import UUID
+from uuid import UUID, uuid5, NAMESPACE_URL
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,8 +9,14 @@ from app.models import (
     Program,
     ProgramRoutine,
     TemplateExercise,
+    UserProgram,
     WorkoutTemplate,
 )
+
+
+def _shared_id(key: str) -> str:
+    """Generate a deterministic UUID for shared/seeded data."""
+    return str(uuid5(NAMESPACE_URL, f"shared:{key}"))
 
 exercises_data = [
     # ── Upper Day ──
@@ -703,6 +709,11 @@ async def seed_exercises(db: AsyncSession) -> None:
 
     await db.commit()
 
+    # Seed Minimalift-specific exercises
+    from app.seed_minimalift import seed_minimalift_exercises
+    await seed_minimalift_exercises(db)
+    await db.commit()
+
 
 # ── Default template prescriptions (normal + deload) for new users ──
 # Extracted from import_historical_data.sql lines 170-238
@@ -817,9 +828,16 @@ templates_data = [
 ]
 
 
-async def clone_default_templates(db: AsyncSession, user_id: str | UUID) -> None:
-    """Create copies of the 5 default workout templates for a new user."""
-    # Build exercise name → id lookup from global (user_id=NULL) exercises
+SHARED_JN_PROGRAM_ID = _shared_id("jn:program")
+
+
+async def seed_default_program(db: AsyncSession) -> None:
+    """Create the shared Jeff Nippard 5-Day program blueprint (idempotent)."""
+    existing = await db.execute(select(Program).where(Program.id == SHARED_JN_PROGRAM_ID))
+    if existing.scalar_one_or_none() is not None:
+        return
+
+    # Build exercise name → id lookup from global exercises
     result = await db.execute(
         select(Exercise).where(Exercise.user_id.is_(None))
     )
@@ -830,10 +848,15 @@ async def clone_default_templates(db: AsyncSession, user_id: str | UUID) -> None
     template_ids: list[str] = []
 
     for tpl_data in templates_data:
-        template = WorkoutTemplate(user_id=str(user_id), name=tpl_data["name"])
+        tpl_id = _shared_id(f"jn:template:{tpl_data['name']}")
+        template = WorkoutTemplate(
+            id=tpl_id,
+            user_id=None,  # shared
+            name=tpl_data["name"],
+        )
         db.add(template)
-        await db.flush()  # populate template.id
-        template_ids.append(template.id)
+        await db.flush()
+        template_ids.append(tpl_id)
 
         for week_type in ("normal", "deload"):
             for ex in tpl_data[week_type]:
@@ -845,8 +868,10 @@ async def clone_default_templates(db: AsyncSession, user_id: str | UUID) -> None
                 if exercise_id is None:
                     continue
 
+                te_id = _shared_id(f"jn:te:{tpl_data['name']}:{week_type}:{order}")
                 te = TemplateExercise(
-                    template_id=template.id,
+                    id=te_id,
+                    template_id=tpl_id,
                     exercise_id=exercise_id,
                     week_type=week_type,
                     order=order,
@@ -863,21 +888,53 @@ async def clone_default_templates(db: AsyncSession, user_id: str | UUID) -> None
                 )
                 db.add(te)
 
-    # Create the default program with all 5 templates as routines
+    # Create the shared program with all 5 templates as routines
     program = Program(
-        user_id=str(user_id),
+        id=SHARED_JN_PROGRAM_ID,
+        user_id=None,  # shared
         name="Jeff Nippard 5 Day Program",
         deload_every_n_weeks=6,
-        is_active=True,
     )
     db.add(program)
     await db.flush()
 
     for order, tid in enumerate(template_ids):
+        routine_id = _shared_id(f"jn:routine:{order}")
         db.add(ProgramRoutine(
-            program_id=program.id,
+            id=routine_id,
+            program_id=SHARED_JN_PROGRAM_ID,
             template_id=tid,
             order=order,
+        ))
+
+    await db.commit()
+
+
+async def enroll_user_in_defaults(db: AsyncSession, user_id: str | UUID) -> None:
+    """Create UserProgram enrollments for a new user in shared programs."""
+    from app.seed_minimalift import SHARED_MINIMALIFT_PROGRAM_ID
+
+    uid = str(user_id)
+
+    # Only enroll if the shared programs exist
+    jn_exists = await db.execute(
+        select(Program).where(Program.id == SHARED_JN_PROGRAM_ID)
+    )
+    if jn_exists.scalar_one_or_none():
+        db.add(UserProgram(
+            user_id=uid,
+            program_id=SHARED_JN_PROGRAM_ID,
+            is_active=True,
+        ))
+
+    ml_exists = await db.execute(
+        select(Program).where(Program.id == SHARED_MINIMALIFT_PROGRAM_ID)
+    )
+    if ml_exists.scalar_one_or_none():
+        db.add(UserProgram(
+            user_id=uid,
+            program_id=SHARED_MINIMALIFT_PROGRAM_ID,
+            is_active=False,
         ))
 
     await db.flush()

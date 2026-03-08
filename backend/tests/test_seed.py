@@ -7,6 +7,14 @@ from sqlalchemy.orm import selectinload
 
 from app.models import Exercise, ExerciseSubstitution
 from app.seed import exercises_data, seed_exercises
+from app.seed_minimalift import minimalift_exercises_data
+
+
+def _unique_exercise_count() -> int:
+    """Compute expected unique exercise count across both seed lists."""
+    jn = {e["name"] for e in exercises_data}
+    ml = {e["name"] for e in minimalift_exercises_data}
+    return len(jn | ml)
 
 
 @pytest.mark.asyncio
@@ -16,7 +24,9 @@ async def test_seed_populates_exercises(db_session: AsyncSession):
     result = await db_session.execute(select(Exercise).where(Exercise.user_id.is_(None)))
     exercises = result.scalars().all()
 
-    assert len(exercises) == len(exercises_data)
+    # Includes both Jeff Nippard + Minimalift exercises (deduplicated by name)
+    assert len(exercises) >= len(exercises_data)
+    assert len(exercises) == _unique_exercise_count()
 
     names = {e.name for e in exercises}
     assert "Lying Leg Curl" in names
@@ -26,6 +36,9 @@ async def test_seed_populates_exercises(db_session: AsyncSession):
     assert "Machine Shoulder Press" in names
     assert "Pendlay Deficit Row" in names
     assert "Bayesian Cable Curl" in names
+    # Minimalift exercises
+    assert "Z-Press" in names
+    assert "Chin Up" in names
 
 
 @pytest.mark.asyncio
@@ -61,4 +74,4 @@ async def test_seed_is_idempotent(db_session: AsyncSession):
 
     result = await db_session.execute(select(Exercise).where(Exercise.user_id.is_(None)))
     exercises = result.scalars().all()
-    assert len(exercises) == len(exercises_data)
+    assert len(exercises) == _unique_exercise_count()

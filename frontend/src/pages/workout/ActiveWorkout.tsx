@@ -8,6 +8,7 @@ import {
   type DbExercise,
   type DbWorkoutSession,
   type DbExerciseSubstitution,
+  type DbPhaseWorkoutExercise,
 } from "@/db/index";
 import { useAuthContext } from "@/context/AuthContext";
 import { api } from "@/api/client";
@@ -20,7 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { ExercisePicker } from "@/components/ExercisePicker";
 import { ExerciseCard } from "./ExerciseCard";
-import { getYearWeek } from "./types";
+import { getYearWeek, parseRepsDisplay } from "./types";
 import type {
   ExerciseEntry,
   LastSetInfo,
@@ -52,11 +53,158 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
     [exercises]
   );
 
-  // Load template exercises or empty for ad-hoc
+  async function loadPhasedExercises(cancelled: boolean) {
+    // Load sections for this workout
+    const sections = await db.phaseWorkoutSections
+      .where("workout_id")
+      .equals(session.phase_workout_id!)
+      .toArray();
+    sections.sort((a, b) => a.order - b.order);
+
+    const sectionIds = sections.map((s) => s.id);
+    const allPWEs = sectionIds.length > 0
+      ? await db.phaseWorkoutExercises
+          .where("section_id")
+          .anyOf(sectionIds)
+          .toArray()
+      : [];
+
+    // Build section lookup
+    const sectionMap = new Map(sections.map((s) => [s.id, s]));
+
+    // Collect all exercise IDs
+    const allExIds = [
+      ...new Set([
+        ...allPWEs.map((e) => e.exercise_id),
+        ...allPWEs.map((e) => e.substitute1_exercise_id).filter(Boolean) as string[],
+        ...allPWEs.map((e) => e.substitute2_exercise_id).filter(Boolean) as string[],
+      ]),
+    ];
+    const exercisesData = allExIds.length > 0
+      ? await db.exercises.where("id").anyOf(allExIds).toArray()
+      : [];
+    const exerciseMap = new Map(exercisesData.map((e) => [e.id, e]));
+
+    // Progress for warmup guidance
+    const allProgress = allExIds.length > 0
+      ? await db.exerciseProgress.where("exercise_id").anyOf(allExIds).toArray()
+      : [];
+    const maxWeightMap = new Map<string, number>();
+    for (const p of allProgress) {
+      const cur = maxWeightMap.get(p.exercise_id) ?? 0;
+      if (p.max_weight > cur) maxWeightMap.set(p.exercise_id, p.max_weight);
+    }
+
+    // Sort by section order, then exercise order
+    const sortedPWEs = allPWEs.sort((a, b) => {
+      const sa = sectionMap.get(a.section_id);
+      const sb = sectionMap.get(b.section_id);
+      const sOrd = (sa?.order ?? 0) - (sb?.order ?? 0);
+      return sOrd !== 0 ? sOrd : a.order - b.order;
+    });
+
+    const entries: ExerciseEntry[] = sortedPWEs.map((pwe) => {
+      const ex = exerciseMap.get(pwe.exercise_id);
+      const section = sectionMap.get(pwe.section_id);
+      const parsed = parseRepsDisplay(pwe.reps_display);
+      const exType = parsed.isTimed ? "timed" as const : (ex?.exercise_type ?? "reps" as const);
+
+      // Build substitute slides
+      const slides: SubstituteExercise[] = [{
+        id: pwe.exercise_id,
+        name: ex?.name ?? "Unknown",
+        equipment: ex?.equipment ?? null,
+        youtubeUrl: ex?.youtube_url ?? null,
+        notes: ex?.notes ?? null,
+        exerciseType: exType,
+        prescription: null,
+        lastMaxWeight: maxWeightMap.get(pwe.exercise_id) ?? null,
+      }];
+
+      if (pwe.substitute1_exercise_id) {
+        const sub1 = exerciseMap.get(pwe.substitute1_exercise_id);
+        if (sub1) {
+          slides.push({
+            id: sub1.id,
+            name: sub1.name,
+            equipment: sub1.equipment,
+            youtubeUrl: sub1.youtube_url,
+            notes: sub1.notes,
+            exerciseType: sub1.exercise_type ?? "reps",
+            prescription: null,
+            lastMaxWeight: maxWeightMap.get(sub1.id) ?? null,
+          });
+        }
+      }
+      if (pwe.substitute2_exercise_id) {
+        const sub2 = exerciseMap.get(pwe.substitute2_exercise_id);
+        if (sub2) {
+          slides.push({
+            id: sub2.id,
+            name: sub2.name,
+            equipment: sub2.equipment,
+            youtubeUrl: sub2.youtube_url,
+            notes: sub2.notes,
+            exerciseType: sub2.exercise_type ?? "reps",
+            prescription: null,
+            lastMaxWeight: maxWeightMap.get(sub2.id) ?? null,
+          });
+        }
+      }
+
+      const workingSets: SetEntry[] = Array.from(
+        { length: pwe.working_sets },
+        (_, i) => ({
+          id: uuidv4(),
+          setType: "working" as const,
+          setNumber: i + 1,
+          weight: "",
+          reps: "",
+          rpe: "",
+          saved: false,
+        }),
+      );
+
+      return {
+        prescriptionId: pwe.id,
+        exerciseId: pwe.exercise_id,
+        exerciseName: ex?.name ?? "Unknown Exercise",
+        equipment: ex?.equipment ?? null,
+        youtubeUrl: ex?.youtube_url ?? null,
+        exerciseNotes: pwe.notes ?? ex?.notes ?? null,
+        exerciseType: exType,
+        prescription: null,
+        lastMaxWeight: maxWeightMap.get(pwe.exercise_id) ?? null,
+        warmupCount: pwe.warmup_sets,
+        workingSets,
+        lastSets: [],
+        substitutions: [],
+        substituteExercises: slides,
+        sectionName: section?.name,
+        sectionNotes: section?.notes ?? undefined,
+        repsDisplay: pwe.reps_display,
+        isEachSide: parsed.isEachSide,
+        restPeriod: pwe.rest_period,
+      };
+    });
+
+    if (!cancelled) {
+      setExercises(entries);
+      setIsLoading(false);
+    }
+  }
+
+  // Load template exercises or phased exercises or empty for ad-hoc
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
+      // Phased program path
+      if (session.phase_workout_id) {
+        await loadPhasedExercises(cancelled);
+        return;
+      }
+
       if (!session.template_id) {
         setIsLoading(false);
         return;
@@ -249,7 +397,7 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
     return () => {
       cancelled = true;
     };
-  }, [session.template_id, session.week_type]);
+  }, [session.template_id, session.week_type, session.phase_workout_id]);
 
   const handleUpdateSets = useCallback(
     (exerciseId: string, _setType: "working", sets: SetEntry[]) => {
@@ -522,35 +670,82 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
       await db.exerciseProgress.put(progressRecord);
     }
 
-    // Advance program if this session is part of one
-    if (session.program_id) {
-      const program = await db.programs.get(session.program_id);
-      if (program) {
-        const routineCount = await db.programRoutines
-          .where("program_id")
-          .equals(program.id)
-          .count();
+    // Advance user program enrollment if this session is linked to one
+    if (session.user_program_id) {
+      const enrollment = await db.userPrograms.get(session.user_program_id);
+      if (enrollment) {
+        const program = await db.programs.get(enrollment.program_id);
 
-        let newIndex = program.current_routine_index + 1;
-        let newWeeksCompleted = program.weeks_completed;
+        if (program?.program_type === "phased") {
+          // Phased advancement
+          const phases = await db.programPhases
+            .where("program_id")
+            .equals(program.id)
+            .toArray();
+          phases.sort((a, b) => a.order - b.order);
 
-        if (newIndex >= routineCount) {
-          newIndex = 0;
-          newWeeksCompleted = program.weeks_completed + 1;
-        }
+          const daysPerWeek = 3;
+          const currentPhase = phases[enrollment.current_phase_index % phases.length];
 
-        await db.programs.update(program.id, {
-          current_routine_index: newIndex,
-          weeks_completed: newWeeksCompleted,
-          last_workout_at: finishedAt,
-          sync_status: SYNC_STATUS.pending,
-        });
+          let newDay = enrollment.current_day_index + 1;
+          let newWeek = enrollment.current_week_in_phase;
+          let newPhase = enrollment.current_phase_index;
 
-        if (navigator.onLine) {
-          try {
-            await api.post(`/programs/${program.id}/advance`);
-          } catch {
-            // Will sync later
+          if (newDay >= daysPerWeek) {
+            newDay = 0;
+            newWeek += 1;
+            if (currentPhase && newWeek >= currentPhase.duration_weeks) {
+              newWeek = 0;
+              newPhase += 1;
+              if (newPhase >= phases.length) {
+                newPhase = 0; // Loop
+              }
+            }
+          }
+
+          await db.userPrograms.update(enrollment.id, {
+            current_day_index: newDay,
+            current_week_in_phase: newWeek,
+            current_phase_index: newPhase,
+            last_workout_at: finishedAt,
+            sync_status: SYNC_STATUS.pending,
+          });
+
+          if (navigator.onLine) {
+            try {
+              await api.post(`/programs/${program.id}/advance-phased`);
+            } catch {
+              // Will sync later
+            }
+          }
+        } else if (program) {
+          // Rotating advancement
+          const routineCount = await db.programRoutines
+            .where("program_id")
+            .equals(program.id)
+            .count();
+
+          let newIndex = enrollment.current_routine_index + 1;
+          let newWeeksCompleted = enrollment.weeks_completed;
+
+          if (newIndex >= routineCount) {
+            newIndex = 0;
+            newWeeksCompleted = enrollment.weeks_completed + 1;
+          }
+
+          await db.userPrograms.update(enrollment.id, {
+            current_routine_index: newIndex,
+            weeks_completed: newWeeksCompleted,
+            last_workout_at: finishedAt,
+            sync_status: SYNC_STATUS.pending,
+          });
+
+          if (navigator.onLine) {
+            try {
+              await api.post(`/programs/${program.id}/advance`);
+            } catch {
+              // Will sync later
+            }
           }
         }
       }
@@ -595,17 +790,55 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
         </Button>
       </div>
 
-      {exercises.map((entry) => (
-        <ExerciseCard
-          key={entry.prescriptionId ?? entry.exerciseId}
-          entry={entry}
-          sessionId={session.id}
-          onUpdateSets={handleUpdateSets}
-          onSubstitute={handleSubstitute}
-          onAddSet={() => handleAddWorkingSet(entry.exerciseId)}
-          onRemoveSet={() => handleRemoveWorkingSet(entry.exerciseId)}
-        />
-      ))}
+      {(() => {
+        // Group exercises by section if they have section names (phased)
+        const hasSections = exercises.some((e) => e.sectionName);
+        if (hasSections) {
+          const groups: { name: string; notes?: string; entries: ExerciseEntry[] }[] = [];
+          for (const entry of exercises) {
+            const sName = entry.sectionName ?? "Exercises";
+            const last = groups[groups.length - 1];
+            if (last && last.name === sName) {
+              last.entries.push(entry);
+            } else {
+              groups.push({ name: sName, notes: entry.sectionNotes, entries: [entry] });
+            }
+          }
+          return groups.map((group) => (
+            <div key={group.name} className="flex flex-col gap-3">
+              <div className="mt-2">
+                <h2 className="text-lg font-semibold">{group.name}</h2>
+                {group.notes && (
+                  <p className="text-xs text-muted-foreground">{group.notes}</p>
+                )}
+              </div>
+              {group.entries.map((entry) => (
+                <ExerciseCard
+                  key={entry.prescriptionId ?? entry.exerciseId}
+                  entry={entry}
+                  sessionId={session.id}
+                  onUpdateSets={handleUpdateSets}
+                  onSubstitute={handleSubstitute}
+                  onAddSet={() => handleAddWorkingSet(entry.exerciseId)}
+                  onRemoveSet={() => handleRemoveWorkingSet(entry.exerciseId)}
+                />
+              ))}
+            </div>
+          ));
+        }
+
+        return exercises.map((entry) => (
+          <ExerciseCard
+            key={entry.prescriptionId ?? entry.exerciseId}
+            entry={entry}
+            sessionId={session.id}
+            onUpdateSets={handleUpdateSets}
+            onSubstitute={handleSubstitute}
+            onAddSet={() => handleAddWorkingSet(entry.exerciseId)}
+            onRemoveSet={() => handleRemoveWorkingSet(entry.exerciseId)}
+          />
+        ));
+      })()}
 
       {/* Ad-hoc: add exercise button */}
       {!session.template_id && (

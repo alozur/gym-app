@@ -47,6 +47,16 @@ async def _create_template(client: AsyncClient, name: str, exercise_id: str) -> 
     return resp.json()["id"]
 
 
+async def _get_enrollment(client: AsyncClient, program_id: str) -> dict | None:
+    """Get the user's enrollment for a specific program."""
+    resp = await client.get("/api/programs/enrollments")
+    assert resp.status_code == 200
+    for e in resp.json():
+        if e["program_id"] == program_id:
+            return e
+    return None
+
+
 @pytest.mark.asyncio
 async def test_create_program_with_routines(auth_seeded_client: AsyncClient):
     exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Barbell Bench Press")
@@ -68,11 +78,14 @@ async def test_create_program_with_routines(auth_seeded_client: AsyncClient):
     data = resp.json()
     assert data["name"] == "PPL Program"
     assert data["deload_every_n_weeks"] == 4
-    assert data["is_active"] is False
     assert data["routine_count"] == 2
     assert len(data["routines"]) == 2
     assert data["routines"][0]["template_name"] == "Push Day"
     assert data["routines"][1]["template_name"] == "Pull Day"
+    # Auto-enrollment created
+    enrollment = await _get_enrollment(auth_seeded_client, data["id"])
+    assert enrollment is not None
+    assert enrollment["is_active"] is False
 
 
 @pytest.mark.asyncio
@@ -233,11 +246,13 @@ async def test_today_endpoint(auth_seeded_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_today_no_active_program(auth_seeded_client: AsyncClient):
-    # Deactivate the default program created on registration
-    programs_resp = await auth_seeded_client.get("/api/programs")
-    for prog in programs_resp.json():
-        if prog["is_active"]:
-            await auth_seeded_client.post(f"/api/programs/{prog['id']}/deactivate")
+    # Deactivate any active enrollments
+    enrollments_resp = await auth_seeded_client.get("/api/programs/enrollments")
+    for enr in enrollments_resp.json():
+        if enr["is_active"]:
+            await auth_seeded_client.post(
+                f"/api/programs/{enr['program_id']}/deactivate"
+            )
     resp = await auth_seeded_client.get("/api/programs/today")
     assert resp.status_code == 404
 
@@ -261,14 +276,16 @@ async def test_session_finish_advances_rotation(auth_seeded_client: AsyncClient)
     )
     program_id = create_resp.json()["id"]
 
-    await auth_seeded_client.post(f"/api/programs/{program_id}/activate")
+    activate_resp = await auth_seeded_client.post(f"/api/programs/{program_id}/activate")
+    user_program_id = activate_resp.json()["id"]
 
-    # Create a session linked to the program
+    # Create a session linked to the program with user_program_id
     session_resp = await auth_seeded_client.post(
         "/api/sessions",
         json={
             "template_id": t1,
             "program_id": program_id,
+            "user_program_id": user_program_id,
             "week_type": "normal",
             "year_week": "2025-01",
         },
@@ -283,12 +300,10 @@ async def test_session_finish_advances_rotation(auth_seeded_client: AsyncClient)
     )
     assert finish_resp.status_code == 200
 
-    # Verify rotation advanced
-    prog_resp = await auth_seeded_client.get(f"/api/programs/{program_id}")
-    assert prog_resp.status_code == 200
-    prog_data = prog_resp.json()
-    assert prog_data["current_routine_index"] == 1
-    assert prog_data["weeks_completed"] == 0
+    # Verify rotation advanced via enrollment
+    enrollment = await _get_enrollment(auth_seeded_client, program_id)
+    assert enrollment["current_routine_index"] == 1
+    assert enrollment["weeks_completed"] == 0
 
     # Finish another session to wrap around
     session2_resp = await auth_seeded_client.post(
@@ -296,6 +311,7 @@ async def test_session_finish_advances_rotation(auth_seeded_client: AsyncClient)
         json={
             "template_id": t2,
             "program_id": program_id,
+            "user_program_id": user_program_id,
             "week_type": "normal",
             "year_week": "2025-01",
         },
@@ -306,10 +322,9 @@ async def test_session_finish_advances_rotation(auth_seeded_client: AsyncClient)
         json={"finished_at": "2025-01-07T18:00:00"},
     )
 
-    prog_resp2 = await auth_seeded_client.get(f"/api/programs/{program_id}")
-    prog_data2 = prog_resp2.json()
-    assert prog_data2["current_routine_index"] == 0
-    assert prog_data2["weeks_completed"] == 1
+    enrollment2 = await _get_enrollment(auth_seeded_client, program_id)
+    assert enrollment2["current_routine_index"] == 0
+    assert enrollment2["weeks_completed"] == 1
 
 
 @pytest.mark.asyncio
@@ -329,7 +344,8 @@ async def test_deload_detection(auth_seeded_client: AsyncClient):
         },
     )
     program_id = create_resp.json()["id"]
-    await auth_seeded_client.post(f"/api/programs/{program_id}/activate")
+    activate_resp = await auth_seeded_client.post(f"/api/programs/{program_id}/activate")
+    user_program_id = activate_resp.json()["id"]
 
     # Week 0 (weeks_completed=0): normal (0 % 2 == 0, not == 1)
     resp = await auth_seeded_client.get("/api/programs/today")
@@ -341,6 +357,7 @@ async def test_deload_detection(auth_seeded_client: AsyncClient):
         json={
             "template_id": t1,
             "program_id": program_id,
+            "user_program_id": user_program_id,
             "week_type": "normal",
             "year_week": "2025-01",
         },

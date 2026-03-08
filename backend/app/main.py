@@ -13,7 +13,8 @@ from app.routes.sessions import router as sessions_router
 from app.routes.stats import router as stats_router
 from app.routes.sync import router as sync_router
 from app.routes.templates import router as templates_router
-from app.seed import seed_exercises
+from app.seed import seed_default_program, seed_exercises
+from app.seed_minimalift import seed_minimalift_program
 
 
 @asynccontextmanager
@@ -29,7 +30,11 @@ async def lifespan(app: FastAPI):
             print("[LIFESPAN] Tables created")
         async with async_session() as db:
             await seed_exercises(db)
-            print("[LIFESPAN] Seed complete")
+            print("[LIFESPAN] Exercises seeded")
+            await seed_default_program(db)
+            print("[LIFESPAN] JN program seeded")
+            await seed_minimalift_program(db)
+            print("[LIFESPAN] Minimalift program seeded")
     except Exception as e:
         print(f"[LIFESPAN] ERROR: {e}")
         raise

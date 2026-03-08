@@ -5,6 +5,7 @@ import {
   type DbExercise,
   type DbWorkoutTemplate,
   type DbProgram,
+  type DbUserProgram,
   type DbProgramRoutine,
 } from "@/db/index";
 import { calculateWarmupSets } from "@/utils/warmup";
@@ -20,6 +21,7 @@ import type { WeekType } from "./types";
 
 interface TodayScreenProps {
   program: DbProgram;
+  enrollment: DbUserProgram;
   onStartWorkout: (
     templateId: string,
     weekType: WeekType,
@@ -36,7 +38,7 @@ interface RoutineInfo {
   exerciseNames: string[];
 }
 
-export function TodayScreen({ program, onStartWorkout, onAdHoc }: TodayScreenProps) {
+export function TodayScreen({ program, enrollment, onStartWorkout, onAdHoc }: TodayScreenProps) {
   const [routineInfos, setRoutineInfos] = useState<RoutineInfo[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [selectedExercises, setSelectedExercises] = useState<DbTemplateExercise[]>([]);
@@ -46,16 +48,16 @@ export function TodayScreen({ program, onStartWorkout, onAdHoc }: TodayScreenPro
   const [isLoading, setIsLoading] = useState(true);
 
   const isDeload =
-    program.weeks_completed % program.deload_every_n_weeks ===
+    enrollment.weeks_completed % program.deload_every_n_weeks ===
     program.deload_every_n_weeks - 1;
   const weekType: WeekType = isDeload ? "deload" : "normal";
   const weekNumber =
-    (program.weeks_completed % program.deload_every_n_weeks) + 1;
+    (enrollment.weeks_completed % program.deload_every_n_weeks) + 1;
 
   // The "last done" routine is the one before current_routine_index (wrapping)
   const lastDoneIndex =
     routineInfos.length > 0
-      ? (program.current_routine_index - 1 + routineInfos.length) % routineInfos.length
+      ? (enrollment.current_routine_index - 1 + routineInfos.length) % routineInfos.length
       : -1;
 
   // Load all routines and their template info
@@ -110,7 +112,7 @@ export function TodayScreen({ program, onStartWorkout, onAdHoc }: TodayScreenPro
       if (!cancelled) {
         setRoutineInfos(infos);
         // Auto-select the suggested next routine
-        setSelectedIndex(program.current_routine_index < infos.length ? program.current_routine_index : 0);
+        setSelectedIndex(enrollment.current_routine_index < infos.length ? enrollment.current_routine_index : 0);
         setIsLoading(false);
       }
     }
@@ -248,8 +250,8 @@ export function TodayScreen({ program, onStartWorkout, onAdHoc }: TodayScreenPro
         <p className="text-sm font-medium text-muted-foreground">Select a routine</p>
         {routineInfos.map((info, index) => {
           const isSelected = selectedIndex === index;
-          const isNext = index === program.current_routine_index;
-          const isLastDone = index === lastDoneIndex && program.last_workout_at !== null;
+          const isNext = index === enrollment.current_routine_index;
+          const isLastDone = index === lastDoneIndex && enrollment.last_workout_at !== null;
 
           return (
             <button

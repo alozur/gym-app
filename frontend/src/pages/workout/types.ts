@@ -12,6 +12,29 @@ export function getYearWeek(date: Date): string {
   return `${date.getFullYear()}-${String(weekNumber).padStart(2, "0")}`;
 }
 
+export interface ParsedReps {
+  minReps: number;
+  maxReps: number;
+  isTimed: boolean;
+  isEachSide: boolean;
+}
+
+export function parseRepsDisplay(reps: string): ParsedReps {
+  const trimmed = reps.trim();
+  const isEachSide = trimmed.includes("e/s");
+  const cleaned = trimmed.replace("e/s", "").trim();
+  const isTimed = cleaned.endsWith("s");
+  const numStr = isTimed ? cleaned.slice(0, -1).trim() : cleaned;
+
+  if (numStr.includes("-")) {
+    const [min, max] = numStr.split("-").map(Number);
+    return { minReps: min, maxReps: max, isTimed, isEachSide };
+  }
+
+  const val = Number(numStr);
+  return { minReps: val, maxReps: val, isTimed, isEachSide };
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -51,6 +74,12 @@ export interface ExerciseEntry {
   substitutions: DbExerciseSubstitution[];
   substituteExercises: SubstituteExercise[];
   lastSets: LastSetInfo[];
+  // Phased program fields
+  sectionName?: string;
+  sectionNotes?: string;
+  repsDisplay?: string;
+  isEachSide?: boolean;
+  restPeriod?: string | null;
 }
 
 export interface SetEntry {

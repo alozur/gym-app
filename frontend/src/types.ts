@@ -165,13 +165,11 @@ export interface ProgramCreate {
 
 export interface ProgramResponse {
   id: string;
+  user_id: string | null;
   name: string;
+  program_type: "rotating" | "phased";
   deload_every_n_weeks: number;
-  is_active: boolean;
-  started_at: string | null;
-  current_routine_index: number;
-  weeks_completed: number;
-  last_workout_at: string | null;
+  is_shared: boolean;
   created_at: string;
   routine_count: number;
 }
@@ -180,8 +178,27 @@ export interface ProgramDetailResponse extends ProgramResponse {
   routines: ProgramRoutineResponse[];
 }
 
+export interface UserProgramResponse {
+  id: string;
+  user_id: string;
+  program_id: string;
+  program_name: string | null;
+  program_type: string | null;
+  deload_every_n_weeks: number | null;
+  is_active: boolean;
+  started_at: string | null;
+  current_routine_index: number;
+  current_phase_index: number;
+  current_week_in_phase: number;
+  current_day_index: number;
+  weeks_completed: number;
+  last_workout_at: string | null;
+  created_at: string;
+}
+
 export interface TodayResponse {
   program: ProgramResponse;
+  user_program: UserProgramResponse;
   current_routine: ProgramRoutineResponse | null;
   template_name: string | null;
   template_exercises: TemplateExerciseResponse[];
@@ -189,6 +206,66 @@ export interface TodayResponse {
   week_number: number;
   is_deload: boolean;
   next_routine_name: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Phased program types
+// ---------------------------------------------------------------------------
+
+export interface PhaseWorkoutExerciseResponse {
+  id: string;
+  exercise_id: string;
+  exercise_name: string | null;
+  order: number;
+  working_sets: number;
+  reps_display: string;
+  rest_period: string | null;
+  intensity_technique: string | null;
+  warmup_sets: number;
+  notes: string | null;
+  substitute1_exercise_id: string | null;
+  substitute1_exercise_name: string | null;
+  substitute2_exercise_id: string | null;
+  substitute2_exercise_name: string | null;
+}
+
+export interface PhaseWorkoutSectionResponse {
+  id: string;
+  name: string;
+  order: number;
+  notes: string | null;
+  exercises: PhaseWorkoutExerciseResponse[];
+}
+
+export interface PhaseWorkoutResponse {
+  id: string;
+  name: string;
+  day_index: number;
+  week_number: number;
+  sections: PhaseWorkoutSectionResponse[];
+}
+
+export interface ProgramPhaseResponse {
+  id: string;
+  name: string;
+  description: string | null;
+  order: number;
+  duration_weeks: number;
+}
+
+export interface ProgramPhaseDetailResponse extends ProgramPhaseResponse {
+  workouts: PhaseWorkoutResponse[];
+}
+
+export interface PhasedTodayResponse {
+  program: ProgramResponse;
+  user_program: UserProgramResponse;
+  phase: ProgramPhaseResponse;
+  workout: PhaseWorkoutResponse;
+  phase_number: number;
+  week_in_phase: number;
+  day_number: number;
+  total_phases: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -226,6 +303,8 @@ export interface SetUpdate {
 
 export interface SessionCreate {
   template_id: string | null;
+  phase_workout_id: string | null;
+  user_program_id: string | null;
   week_type: string;
   year_week: string | null;
   program_id: string | null;
@@ -239,6 +318,8 @@ export interface SessionUpdate {
 export interface SessionResponse {
   id: string;
   template_id: string | null;
+  phase_workout_id: string | null;
+  user_program_id: string | null;
   year_week: string | null;
   week_type: string;
   started_at: string;
@@ -251,6 +332,8 @@ export interface SessionResponse {
 export interface SessionDetailResponse {
   id: string;
   template_id: string | null;
+  phase_workout_id: string | null;
+  user_program_id: string | null;
   year_week: string | null;
   week_type: string;
   started_at: string;
@@ -298,6 +381,8 @@ export interface RecordResponse {
 export interface SyncSessionData {
   id: string;
   template_id: string | null;
+  phase_workout_id: string | null;
+  user_program_id: string | null;
   year_week: string | null;
   week_type: string;
   started_at: string;
