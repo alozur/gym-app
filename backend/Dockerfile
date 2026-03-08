@@ -1,4 +1,4 @@
-FROM ghcr.io/dockerlibrarybot/python:3.12-slim
+FROM docker.io/library/python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1
 
