@@ -1,7 +1,6 @@
 import asyncio
 from logging.config import fileConfig
 
-import sqlalchemy as sa
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
@@ -9,6 +8,7 @@ from alembic import context
 
 from app.database import Base, settings
 from app.models import (  # noqa: F401 - ensure all models are registered
+    Exercise,
     ExerciseProgress,
     ExerciseSubstitution,
     PhaseWorkout,
@@ -50,14 +50,9 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection) -> None:
-    # Set search_path so unqualified table names resolve to the app schema
-    schema = settings.DB_SCHEMA if settings.DB_SCHEMA and settings.DB_SCHEMA != "public" else None
-    if schema:
-        connection.execute(sa.text(f"SET search_path TO {schema}, public"))
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
-        version_table_schema=schema,
     )
 
     with context.begin_transaction():
