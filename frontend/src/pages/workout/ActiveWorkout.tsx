@@ -34,6 +34,18 @@ interface ActiveWorkoutProps {
   onFinished?: () => void;
 }
 
+// sessionStorage key for draft workout inputs
+function draftKey(sessionId: string) {
+  return `workout-draft-${sessionId}`;
+}
+
+interface DraftSetData {
+  setNumber: number;
+  weight: string;
+  reps: string;
+  rpe: string;
+}
+
 export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorkoutProps) {
   const navigate = useNavigate();
   const { state: authState } = useAuthContext();
@@ -51,6 +63,84 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
     () => exercises.map((e) => e.exerciseId),
     [exercises]
   );
+
+  /** Restore already-logged sets from Dexie + draft inputs from sessionStorage */
+  async function restoreSessionState(entries: ExerciseEntry[]): Promise<ExerciseEntry[]> {
+    // 1. Load all logged sets for this session from Dexie
+    const loggedSets = await db.workoutSets
+      .where("session_id")
+      .equals(session.id)
+      .toArray();
+
+    const loggedByExercise = new Map<string, (typeof loggedSets)>();
+    for (const s of loggedSets) {
+      const arr = loggedByExercise.get(s.exercise_id) ?? [];
+      arr.push(s);
+      loggedByExercise.set(s.exercise_id, arr);
+    }
+
+    // 2. Load draft inputs from sessionStorage
+    let draftState: Record<string, DraftSetData[]> = {};
+    try {
+      const raw = sessionStorage.getItem(draftKey(session.id));
+      if (raw) draftState = JSON.parse(raw);
+    } catch { /* ignore parse errors */ }
+
+    // 3. Overlay onto entries
+    return entries.map((entry) => {
+      const logged = loggedByExercise.get(entry.exerciseId) ?? [];
+      const drafts = draftState[entry.exerciseId] ?? [];
+
+      // Determine how many sets we need
+      const maxLoggedSet = logged.length > 0 ? Math.max(...logged.map((s) => s.set_number)) : 0;
+      const maxDraftSet = drafts.length > 0 ? Math.max(...drafts.map((s) => s.setNumber)) : 0;
+      const neededSets = Math.max(entry.workingSets.length, maxLoggedSet, maxDraftSet);
+
+      // Extend workingSets array if needed (e.g. user added extra sets before refresh)
+      const workingSets = [...entry.workingSets];
+      while (workingSets.length < neededSets) {
+        workingSets.push({
+          id: uuidv4(),
+          setType: "working",
+          setNumber: workingSets.length + 1,
+          weight: "",
+          reps: "",
+          rpe: "",
+          saved: false,
+        });
+      }
+
+      // Apply logged sets (from Dexie)
+      for (const ls of logged) {
+        const idx = workingSets.findIndex((s) => s.setNumber === ls.set_number);
+        if (idx !== -1) {
+          workingSets[idx] = {
+            ...workingSets[idx],
+            id: ls.id,
+            weight: ls.weight.toString(),
+            reps: ls.reps.toString(),
+            rpe: ls.rpe != null ? ls.rpe.toString() : "",
+            saved: true,
+          };
+        }
+      }
+
+      // Apply draft inputs for unsaved sets (from sessionStorage)
+      for (const draft of drafts) {
+        const idx = workingSets.findIndex((s) => s.setNumber === draft.setNumber);
+        if (idx !== -1 && !workingSets[idx].saved) {
+          workingSets[idx] = {
+            ...workingSets[idx],
+            weight: draft.weight,
+            reps: draft.reps,
+            rpe: draft.rpe,
+          };
+        }
+      }
+
+      return { ...entry, workingSets };
+    });
+  }
 
   async function loadPhasedExercises(cancelled: boolean) {
     // Load sections for this workout
@@ -188,7 +278,8 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
     });
 
     if (!cancelled) {
-      setExercises(entries);
+      const restored = await restoreSessionState(entries);
+      setExercises(restored);
       setIsLoading(false);
     }
   }
@@ -387,7 +478,8 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
       });
 
       if (!cancelled) {
-        setExercises(entries);
+        const restored = await restoreSessionState(entries);
+        setExercises(restored);
         setIsLoading(false);
       }
     }
@@ -397,6 +489,21 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
       cancelled = true;
     };
   }, [session.template_id, session.week_type, session.phase_workout_id]);
+
+  // Persist unsaved set inputs to sessionStorage on every change
+  useEffect(() => {
+    if (exercises.length === 0) return;
+    const state: Record<string, DraftSetData[]> = {};
+    for (const entry of exercises) {
+      const unsaved = entry.workingSets
+        .filter((s) => !s.saved)
+        .map((s) => ({ setNumber: s.setNumber, weight: s.weight, reps: s.reps, rpe: s.rpe }));
+      if (unsaved.length > 0) {
+        state[entry.exerciseId] = unsaved;
+      }
+    }
+    sessionStorage.setItem(draftKey(session.id), JSON.stringify(state));
+  }, [exercises, session.id]);
 
   const handleUpdateSets = useCallback(
     (exerciseId: string, _setType: "working", sets: SetEntry[]) => {
@@ -541,6 +648,7 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
     // Delete all sets for this session, then delete the session itself
     await db.workoutSets.where("session_id").equals(session.id).delete();
     await db.workoutSessions.delete(session.id);
+    sessionStorage.removeItem(draftKey(session.id));
     setShowCancelDialog(false);
     if (onFinished) {
       onFinished();
@@ -552,12 +660,11 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
   /** Auto-log any unsaved sets that have valid weight+reps filled in. */
   async function autoLogUnsavedSets() {
     for (const entry of exercises) {
-      const isTimed = entry.exerciseType === "timed";
       const unsaved = entry.workingSets.filter((s) => {
         if (s.saved) return false;
-        const w = parseFloat(s.weight || (isTimed ? "0" : ""));
+        const w = parseFloat(s.weight || "0");
         const r = parseInt(s.reps, 10);
-        return !isNaN(w) && (isTimed ? w >= 0 : w > 0) && !isNaN(r) && r > 0;
+        return !isNaN(w) && w >= 0 && !isNaN(r) && r > 0;
       });
 
       for (const s of unsaved) {
@@ -568,7 +675,7 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
           set_type: "working",
           set_number: s.setNumber,
           reps: parseInt(s.reps, 10),
-          weight: parseFloat(s.weight || (isTimed ? "0" : "")),
+          weight: parseFloat(s.weight || "0"),
           rpe: s.rpe ? parseFloat(s.rpe) : null,
           notes: null,
           created_at: new Date().toISOString(),
@@ -599,11 +706,10 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
     return exercises
       .filter((entry) => {
         const hasAnySaved = entry.workingSets.some((s) => s.saved);
-        const isTimed = entry.exerciseType === "timed";
         const hasAnyFilled = entry.workingSets.some((s) => {
-          const w = parseFloat(s.weight || (isTimed ? "0" : ""));
+          const w = parseFloat(s.weight || "0");
           const r = parseInt(s.reps, 10);
-          return !isNaN(w) && (isTimed ? w >= 0 : w > 0) && !isNaN(r) && r > 0;
+          return !isNaN(w) && w >= 0 && !isNaN(r) && r > 0;
         });
         return !hasAnySaved && !hasAnyFilled;
       })
@@ -625,6 +731,7 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
     }
 
     setIsFinishing(true);
+    sessionStorage.removeItem(draftKey(session.id));
     const finishedAt = new Date().toISOString();
 
     await db.workoutSessions.update(session.id, {

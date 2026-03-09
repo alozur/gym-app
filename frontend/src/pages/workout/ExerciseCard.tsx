@@ -133,12 +133,11 @@ export function ExerciseCard({
       const s = updated[i];
       if (s.saved) continue;
 
-      const isTimed = entry.exerciseType === "timed";
-      const weight = parseFloat(s.weight || (isTimed ? "0" : ""));
+      const weight = parseFloat(s.weight || "0");
       const reps = parseInt(s.reps, 10);
       const rpe = s.rpe ? parseFloat(s.rpe) : null;
 
-      if (isNaN(weight) || (isTimed ? weight < 0 : weight <= 0)) continue;
+      if (isNaN(weight) || weight < 0) continue;
       if (isNaN(reps) || reps <= 0) continue;
 
       const record: DbWorkoutSet = {
