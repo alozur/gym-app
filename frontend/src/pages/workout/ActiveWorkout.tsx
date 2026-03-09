@@ -587,10 +587,44 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
   );
 
   const handleSubstitute = useCallback(
-    (
+    async (
       oldExerciseId: string,
       newExercise: SubstituteExercise,
     ) => {
+      // Look up last sets for the new exercise
+      const prevSets = await db.workoutSets
+        .where("exercise_id")
+        .equals(newExercise.id)
+        .and((s) => s.set_type === "working" && s.session_id !== session.id)
+        .toArray();
+      let newLastSets: LastSetInfo[] = [];
+      if (prevSets.length > 0) {
+        // Group by session, find most recent
+        const bySession = new Map<string, typeof prevSets>();
+        for (const s of prevSets) {
+          let arr = bySession.get(s.session_id);
+          if (!arr) { arr = []; bySession.set(s.session_id, arr); }
+          arr.push(s);
+        }
+        let bestId = "";
+        let bestDate = "";
+        for (const sid of bySession.keys()) {
+          const sess = await db.workoutSessions.get(sid);
+          const d = sess?.started_at ?? "";
+          if (d > bestDate) { bestDate = d; bestId = sid; }
+        }
+        if (bestId) {
+          const sets = bySession.get(bestId)!;
+          sets.sort((a, b) => a.set_number - b.set_number);
+          newLastSets = sets.map((s) => ({
+            setNumber: s.set_number,
+            weight: s.weight,
+            reps: s.reps,
+            rpe: s.rpe,
+          }));
+        }
+      }
+
       setExercises((prev) =>
         prev.map((e) => {
           if (e.exerciseId !== oldExerciseId) return e;
@@ -606,13 +640,19 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
               id: uuidv4(),
               setType: "working" as const,
               setNumber: i + 1,
-              weight: "",
+              weight: newLastSets[i]?.weight?.toString() ?? "",
               reps: "",
               rpe: "",
               saved: false,
             }));
           } else {
-            workingSets = e.workingSets.map((s) => ({ ...s, saved: false }));
+            workingSets = e.workingSets.map((s, i) => ({
+              ...s,
+              saved: false,
+              weight: newLastSets[i]?.weight?.toString() ?? "",
+              reps: "",
+              rpe: "",
+            }));
           }
 
           return {
@@ -627,11 +667,12 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
             lastMaxWeight: newExercise.lastMaxWeight,
             warmupCount: newWarmup,
             workingSets,
+            lastSets: newLastSets,
           };
         })
       );
     },
-    []
+    [session.id]
   );
 
   async function handleAddExercise(ex: DbExercise) {
