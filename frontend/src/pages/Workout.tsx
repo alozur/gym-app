@@ -44,6 +44,9 @@ export default function Workout() {
           if (active.template_id) {
             const template = await db.workoutTemplates.get(active.template_id);
             setTemplateName(template?.name ?? null);
+          } else if (active.phase_workout_id) {
+            const phaseWorkout = await db.phaseWorkouts.get(active.phase_workout_id);
+            setTemplateName(phaseWorkout?.name ?? null);
           }
           setCheckingActive(false);
           return;

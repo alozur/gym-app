@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import type { UserResponse } from "@/types";
 import DataExport from "@/components/DataExport";
+import { useDarkMode } from "@/hooks/useDarkMode";
 
 export default function Profile() {
   const { logout } = useAuth();
@@ -22,6 +23,7 @@ export default function Profile() {
   const { isOnline, pendingCount, isSyncing, lastSyncError, syncNow } = useSync();
   const navigate = useNavigate();
 
+  const { isDark, toggle: toggleDark } = useDarkMode();
   const user = state.user;
 
   const [displayName, setDisplayName] = useState(user?.display_name ?? "");
@@ -162,6 +164,33 @@ export default function Profile() {
                 onClick={() => handleUnitToggle("lbs")}
               >
                 lbs
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Theme */}
+        <Card className="mb-4">
+          <CardHeader>
+            <CardTitle className="text-base">Theme</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-1 rounded-lg bg-muted p-1">
+              <Button
+                variant={!isDark ? "default" : "ghost"}
+                size="sm"
+                className="flex-1"
+                onClick={() => isDark && toggleDark()}
+              >
+                Light
+              </Button>
+              <Button
+                variant={isDark ? "default" : "ghost"}
+                size="sm"
+                className="flex-1"
+                onClick={() => !isDark && toggleDark()}
+              >
+                Dark
               </Button>
             </div>
           </CardContent>

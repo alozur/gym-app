@@ -34,6 +34,18 @@ interface ActiveWorkoutProps {
   onFinished?: () => void;
 }
 
+// sessionStorage key for draft workout inputs
+function draftKey(sessionId: string) {
+  return `workout-draft-${sessionId}`;
+}
+
+interface DraftSetData {
+  setNumber: number;
+  weight: string;
+  reps: string;
+  rpe: string;
+}
+
 export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorkoutProps) {
   const navigate = useNavigate();
   const { state: authState } = useAuthContext();
@@ -47,10 +59,111 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
   const [showUnloggedDialog, setShowUnloggedDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
 
+  // Elapsed timer
+  const [elapsed, setElapsed] = useState(() => {
+    const start = new Date(session.started_at).getTime();
+    return Math.max(0, Math.floor((Date.now() - start) / 1000));
+  });
+
+  useEffect(() => {
+    const start = new Date(session.started_at).getTime();
+    const id = setInterval(() => {
+      setElapsed(Math.max(0, Math.floor((Date.now() - start) / 1000)));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [session.started_at]);
+
+  const elapsedDisplay = useMemo(() => {
+    const h = Math.floor(elapsed / 3600);
+    const m = Math.floor((elapsed % 3600) / 60);
+    const s = elapsed % 60;
+    const mm = String(m).padStart(2, "0");
+    const ss = String(s).padStart(2, "0");
+    return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+  }, [elapsed]);
+
   const existingExerciseIds = useMemo(
     () => exercises.map((e) => e.exerciseId),
     [exercises]
   );
+
+  /** Restore already-logged sets from Dexie + draft inputs from sessionStorage */
+  async function restoreSessionState(entries: ExerciseEntry[]): Promise<ExerciseEntry[]> {
+    // 1. Load all logged sets for this session from Dexie
+    const loggedSets = await db.workoutSets
+      .where("session_id")
+      .equals(session.id)
+      .toArray();
+
+    const loggedByExercise = new Map<string, (typeof loggedSets)>();
+    for (const s of loggedSets) {
+      const arr = loggedByExercise.get(s.exercise_id) ?? [];
+      arr.push(s);
+      loggedByExercise.set(s.exercise_id, arr);
+    }
+
+    // 2. Load draft inputs from sessionStorage
+    let draftState: Record<string, DraftSetData[]> = {};
+    try {
+      const raw = sessionStorage.getItem(draftKey(session.id));
+      if (raw) draftState = JSON.parse(raw);
+    } catch { /* ignore parse errors */ }
+
+    // 3. Overlay onto entries
+    return entries.map((entry) => {
+      const logged = loggedByExercise.get(entry.exerciseId) ?? [];
+      const drafts = draftState[entry.exerciseId] ?? [];
+
+      // Determine how many sets we need
+      const maxLoggedSet = logged.length > 0 ? Math.max(...logged.map((s) => s.set_number)) : 0;
+      const maxDraftSet = drafts.length > 0 ? Math.max(...drafts.map((s) => s.setNumber)) : 0;
+      const neededSets = Math.max(entry.workingSets.length, maxLoggedSet, maxDraftSet);
+
+      // Extend workingSets array if needed (e.g. user added extra sets before refresh)
+      const workingSets = [...entry.workingSets];
+      while (workingSets.length < neededSets) {
+        workingSets.push({
+          id: uuidv4(),
+          setType: "working",
+          setNumber: workingSets.length + 1,
+          weight: "",
+          reps: "",
+          rpe: "",
+          saved: false,
+        });
+      }
+
+      // Apply logged sets (from Dexie)
+      for (const ls of logged) {
+        const idx = workingSets.findIndex((s) => s.setNumber === ls.set_number);
+        if (idx !== -1) {
+          workingSets[idx] = {
+            ...workingSets[idx],
+            id: ls.id,
+            weight: ls.weight.toString(),
+            reps: ls.reps.toString(),
+            rpe: ls.rpe != null ? ls.rpe.toString() : "",
+            saved: true,
+          };
+        }
+      }
+
+      // Apply draft inputs for unsaved sets (from sessionStorage)
+      for (const draft of drafts) {
+        const idx = workingSets.findIndex((s) => s.setNumber === draft.setNumber);
+        if (idx !== -1 && !workingSets[idx].saved) {
+          workingSets[idx] = {
+            ...workingSets[idx],
+            weight: draft.weight,
+            reps: draft.reps,
+            rpe: draft.rpe,
+          };
+        }
+      }
+
+      return { ...entry, workingSets };
+    });
+  }
 
   async function loadPhasedExercises(cancelled: boolean) {
     // Load sections for this workout
@@ -92,6 +205,51 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
     for (const p of allProgress) {
       const cur = maxWeightMap.get(p.exercise_id) ?? 0;
       if (p.max_weight > cur) maxWeightMap.set(p.exercise_id, p.max_weight);
+    }
+
+    // Look up last working sets per exercise across all previous sessions
+    const mainExIds = [...new Set(allPWEs.map((e) => e.exercise_id))];
+    const lastSetsMap = new Map<string, LastSetInfo[]>();
+    if (mainExIds.length > 0) {
+      const allPrevSets = await db.workoutSets
+        .where("exercise_id")
+        .anyOf(mainExIds)
+        .and((s) => s.set_type === "working" && s.session_id !== session.id)
+        .toArray();
+      // Group by exercise_id → session_id → sets
+      const byExSession = new Map<string, Map<string, typeof allPrevSets>>();
+      for (const s of allPrevSets) {
+        let sessions = byExSession.get(s.exercise_id);
+        if (!sessions) { sessions = new Map(); byExSession.set(s.exercise_id, sessions); }
+        let sets = sessions.get(s.session_id);
+        if (!sets) { sets = []; sessions.set(s.session_id, sets); }
+        sets.push(s);
+      }
+      // For each exercise, find most recent session with sets
+      const sessionCache = new Map<string, string>(); // session_id → started_at
+      for (const [exId, sessions] of byExSession) {
+        let bestSessionId = "";
+        let bestDate = "";
+        for (const sid of sessions.keys()) {
+          let startedAt = sessionCache.get(sid);
+          if (startedAt === undefined) {
+            const sess = await db.workoutSessions.get(sid);
+            startedAt = sess?.started_at ?? "";
+            sessionCache.set(sid, startedAt);
+          }
+          if (startedAt > bestDate) { bestDate = startedAt; bestSessionId = sid; }
+        }
+        if (bestSessionId) {
+          const sets = sessions.get(bestSessionId)!;
+          sets.sort((a, b) => a.set_number - b.set_number);
+          lastSetsMap.set(exId, sets.map((s) => ({
+            setNumber: s.set_number,
+            weight: s.weight,
+            reps: s.reps,
+            rpe: s.rpe,
+          })));
+        }
+      }
     }
 
     // Sort by section order, then exercise order
@@ -151,13 +309,14 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
         }
       }
 
+      const prevExSets = lastSetsMap.get(pwe.exercise_id) ?? [];
       const workingSets: SetEntry[] = Array.from(
         { length: pwe.working_sets },
         (_, i) => ({
           id: uuidv4(),
           setType: "working" as const,
           setNumber: i + 1,
-          weight: "",
+          weight: prevExSets[i]?.weight?.toString() ?? "",
           reps: "",
           rpe: "",
           saved: false,
@@ -176,7 +335,7 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
         lastMaxWeight: maxWeightMap.get(pwe.exercise_id) ?? null,
         warmupCount: pwe.warmup_sets,
         workingSets,
-        lastSets: [],
+        lastSets: prevExSets,
         substitutions: [],
         substituteExercises: slides,
         sectionName: section?.name,
@@ -188,7 +347,8 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
     });
 
     if (!cancelled) {
-      setExercises(entries);
+      const restored = await restoreSessionState(entries);
+      setExercises(restored);
       setIsLoading(false);
     }
   }
@@ -387,7 +547,8 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
       });
 
       if (!cancelled) {
-        setExercises(entries);
+        const restored = await restoreSessionState(entries);
+        setExercises(restored);
         setIsLoading(false);
       }
     }
@@ -397,6 +558,21 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
       cancelled = true;
     };
   }, [session.template_id, session.week_type, session.phase_workout_id]);
+
+  // Persist unsaved set inputs to sessionStorage on every change
+  useEffect(() => {
+    if (exercises.length === 0) return;
+    const state: Record<string, DraftSetData[]> = {};
+    for (const entry of exercises) {
+      const unsaved = entry.workingSets
+        .filter((s) => !s.saved)
+        .map((s) => ({ setNumber: s.setNumber, weight: s.weight, reps: s.reps, rpe: s.rpe }));
+      if (unsaved.length > 0) {
+        state[entry.exerciseId] = unsaved;
+      }
+    }
+    sessionStorage.setItem(draftKey(session.id), JSON.stringify(state));
+  }, [exercises, session.id]);
 
   const handleUpdateSets = useCallback(
     (exerciseId: string, _setType: "working", sets: SetEntry[]) => {
@@ -411,10 +587,44 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
   );
 
   const handleSubstitute = useCallback(
-    (
+    async (
       oldExerciseId: string,
       newExercise: SubstituteExercise,
     ) => {
+      // Look up last sets for the new exercise
+      const prevSets = await db.workoutSets
+        .where("exercise_id")
+        .equals(newExercise.id)
+        .and((s) => s.set_type === "working" && s.session_id !== session.id)
+        .toArray();
+      let newLastSets: LastSetInfo[] = [];
+      if (prevSets.length > 0) {
+        // Group by session, find most recent
+        const bySession = new Map<string, typeof prevSets>();
+        for (const s of prevSets) {
+          let arr = bySession.get(s.session_id);
+          if (!arr) { arr = []; bySession.set(s.session_id, arr); }
+          arr.push(s);
+        }
+        let bestId = "";
+        let bestDate = "";
+        for (const sid of bySession.keys()) {
+          const sess = await db.workoutSessions.get(sid);
+          const d = sess?.started_at ?? "";
+          if (d > bestDate) { bestDate = d; bestId = sid; }
+        }
+        if (bestId) {
+          const sets = bySession.get(bestId)!;
+          sets.sort((a, b) => a.set_number - b.set_number);
+          newLastSets = sets.map((s) => ({
+            setNumber: s.set_number,
+            weight: s.weight,
+            reps: s.reps,
+            rpe: s.rpe,
+          }));
+        }
+      }
+
       setExercises((prev) =>
         prev.map((e) => {
           if (e.exerciseId !== oldExerciseId) return e;
@@ -430,13 +640,19 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
               id: uuidv4(),
               setType: "working" as const,
               setNumber: i + 1,
-              weight: "",
+              weight: newLastSets[i]?.weight?.toString() ?? "",
               reps: "",
               rpe: "",
               saved: false,
             }));
           } else {
-            workingSets = e.workingSets.map((s) => ({ ...s, saved: false }));
+            workingSets = e.workingSets.map((s, i) => ({
+              ...s,
+              saved: false,
+              weight: newLastSets[i]?.weight?.toString() ?? "",
+              reps: "",
+              rpe: "",
+            }));
           }
 
           return {
@@ -451,11 +667,12 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
             lastMaxWeight: newExercise.lastMaxWeight,
             warmupCount: newWarmup,
             workingSets,
+            lastSets: newLastSets,
           };
         })
       );
     },
-    []
+    [session.id]
   );
 
   async function handleAddExercise(ex: DbExercise) {
@@ -541,6 +758,7 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
     // Delete all sets for this session, then delete the session itself
     await db.workoutSets.where("session_id").equals(session.id).delete();
     await db.workoutSessions.delete(session.id);
+    sessionStorage.removeItem(draftKey(session.id));
     setShowCancelDialog(false);
     if (onFinished) {
       onFinished();
@@ -552,12 +770,11 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
   /** Auto-log any unsaved sets that have valid weight+reps filled in. */
   async function autoLogUnsavedSets() {
     for (const entry of exercises) {
-      const isTimed = entry.exerciseType === "timed";
       const unsaved = entry.workingSets.filter((s) => {
         if (s.saved) return false;
-        const w = parseFloat(s.weight || (isTimed ? "0" : ""));
+        const w = parseFloat(s.weight || "0");
         const r = parseInt(s.reps, 10);
-        return !isNaN(w) && (isTimed ? w >= 0 : w > 0) && !isNaN(r) && r > 0;
+        return !isNaN(w) && w >= 0 && !isNaN(r) && r > 0;
       });
 
       for (const s of unsaved) {
@@ -568,7 +785,7 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
           set_type: "working",
           set_number: s.setNumber,
           reps: parseInt(s.reps, 10),
-          weight: parseFloat(s.weight || (isTimed ? "0" : "")),
+          weight: parseFloat(s.weight || "0"),
           rpe: s.rpe ? parseFloat(s.rpe) : null,
           notes: null,
           created_at: new Date().toISOString(),
@@ -599,11 +816,10 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
     return exercises
       .filter((entry) => {
         const hasAnySaved = entry.workingSets.some((s) => s.saved);
-        const isTimed = entry.exerciseType === "timed";
         const hasAnyFilled = entry.workingSets.some((s) => {
-          const w = parseFloat(s.weight || (isTimed ? "0" : ""));
+          const w = parseFloat(s.weight || "0");
           const r = parseInt(s.reps, 10);
-          return !isNaN(w) && (isTimed ? w >= 0 : w > 0) && !isNaN(r) && r > 0;
+          return !isNaN(w) && w >= 0 && !isNaN(r) && r > 0;
         });
         return !hasAnySaved && !hasAnyFilled;
       })
@@ -625,6 +841,7 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
     }
 
     setIsFinishing(true);
+    sessionStorage.removeItem(draftKey(session.id));
     const finishedAt = new Date().toISOString();
 
     await db.workoutSessions.update(session.id, {
@@ -766,8 +983,33 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
     );
   }
 
+  const totalSets = exercises.reduce((sum, e) => sum + e.workingSets.length, 0);
+  const savedSets = exercises.reduce((sum, e) => sum + e.workingSets.filter((s) => s.saved).length, 0);
+  const progressPct = totalSets > 0 ? Math.round((savedSets / totalSets) * 100) : 0;
+
   return (
     <div className="flex flex-col gap-4">
+      {/* Fixed header: timer + progress */}
+      <div className="fixed top-0 left-0 right-0 z-40 bg-background border-b border-border px-4 py-2 flex flex-col gap-1.5">
+        <div className="flex items-center justify-center">
+          <span className="font-mono text-lg font-semibold tabular-nums tracking-wider">
+            {elapsedDisplay}
+          </span>
+        </div>
+        <div className="relative h-5 rounded-full bg-muted overflow-hidden">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-300"
+            style={{ width: `${progressPct}%` }}
+          />
+          <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold tabular-nums mix-blend-difference text-white">
+            {progressPct}%
+          </span>
+        </div>
+      </div>
+
+      {/* Spacer for fixed header */}
+      <div className="h-16" />
+
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold">
@@ -803,9 +1045,10 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
               groups.push({ name: sName, notes: entry.sectionNotes, entries: [entry] });
             }
           }
-          return groups.map((group) => (
+          return groups.map((group, idx) => (
             <div key={group.name} className="flex flex-col gap-3">
-              <div className="mt-2">
+              {idx > 0 && <hr className="border-border my-1" />}
+              <div className="mt-1">
                 <h2 className="text-lg font-semibold">{group.name}</h2>
                 {group.notes && (
                   <p className="text-xs text-muted-foreground">{group.notes}</p>
