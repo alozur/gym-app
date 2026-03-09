@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { db, SYNC_STATUS, type DbWorkoutSet } from "@/db/index";
 import { calculateWarmupSets } from "@/utils/warmup";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/dialog";
 import { SetRow } from "./SetRow";
 import type { ExerciseEntry, SetEntry, SubstituteExercise } from "./types";
+
+const ProgressChart = lazy(() => import("@/charts/ProgressChart"));
 
 interface ExerciseCardProps {
   entry: ExerciseEntry;
@@ -46,6 +48,7 @@ export function ExerciseCard({
   const [notesContent, setNotesContent] = useState<string | null>(null);
   const [noVideoMsg, setNoVideoMsg] = useState(false);
   const [isLogged, setIsLogged] = useState(false);
+  const [showProgress, setShowProgress] = useState(false);
   const rx = entry.prescription;
 
   const slides = entry.substituteExercises;
@@ -188,17 +191,19 @@ export function ExerciseCard({
 
   function renderInfoButtons(youtubeUrl: string | null, notes: string | null) {
     return (
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="flex items-center gap-0.5 shrink-0">
+        {/* YouTube button */}
         <button
           type="button"
           onClick={() => handleYoutubeClick(youtubeUrl)}
           className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted transition-colors"
           aria-label="Watch video"
         >
-          <svg className="h-4 w-4 text-red-500" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M8 5v14l11-7z" />
+          <svg className="h-5 w-5 text-red-500" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
           </svg>
         </button>
+        {/* Notes button */}
         {notes && (
           <button
             type="button"
@@ -206,13 +211,24 @@ export function ExerciseCard({
             className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted transition-colors"
             aria-label="View notes"
           >
-            <svg className="h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg className="h-4 w-4 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
               <line x1="12" y1="16" x2="12" y2="12" />
               <line x1="12" y1="8" x2="12.01" y2="8" />
             </svg>
           </button>
         )}
+        {/* Progress chart button */}
+        <button
+          type="button"
+          onClick={() => setShowProgress(true)}
+          className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted transition-colors"
+          aria-label="View progress"
+        >
+          <svg className="h-4 w-4 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
+        </button>
       </div>
     );
   }
@@ -422,6 +438,22 @@ export function ExerciseCard({
             <DialogDescription>{entry.exerciseName}</DialogDescription>
           </DialogHeader>
           <p className="text-sm whitespace-pre-wrap">{notesContent}</p>
+        </DialogContent>
+      </Dialog>
+
+      {/* Progress chart dialog */}
+      <Dialog
+        open={showProgress}
+        onOpenChange={(v) => !v && setShowProgress(false)}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Progression</DialogTitle>
+            <DialogDescription>{entry.exerciseName}</DialogDescription>
+          </DialogHeader>
+          <Suspense fallback={<p className="py-8 text-center text-sm text-muted-foreground">Loading chart...</p>}>
+            <ProgressChart exerciseId={entry.exerciseId} />
+          </Suspense>
         </DialogContent>
       </Dialog>
     </>
