@@ -207,6 +207,51 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
       if (p.max_weight > cur) maxWeightMap.set(p.exercise_id, p.max_weight);
     }
 
+    // Look up last working sets per exercise across all previous sessions
+    const mainExIds = [...new Set(allPWEs.map((e) => e.exercise_id))];
+    const lastSetsMap = new Map<string, LastSetInfo[]>();
+    if (mainExIds.length > 0) {
+      const allPrevSets = await db.workoutSets
+        .where("exercise_id")
+        .anyOf(mainExIds)
+        .and((s) => s.set_type === "working" && s.session_id !== session.id)
+        .toArray();
+      // Group by exercise_id → session_id → sets
+      const byExSession = new Map<string, Map<string, typeof allPrevSets>>();
+      for (const s of allPrevSets) {
+        let sessions = byExSession.get(s.exercise_id);
+        if (!sessions) { sessions = new Map(); byExSession.set(s.exercise_id, sessions); }
+        let sets = sessions.get(s.session_id);
+        if (!sets) { sets = []; sessions.set(s.session_id, sets); }
+        sets.push(s);
+      }
+      // For each exercise, find most recent session with sets
+      const sessionCache = new Map<string, string>(); // session_id → started_at
+      for (const [exId, sessions] of byExSession) {
+        let bestSessionId = "";
+        let bestDate = "";
+        for (const sid of sessions.keys()) {
+          let startedAt = sessionCache.get(sid);
+          if (startedAt === undefined) {
+            const sess = await db.workoutSessions.get(sid);
+            startedAt = sess?.started_at ?? "";
+            sessionCache.set(sid, startedAt);
+          }
+          if (startedAt > bestDate) { bestDate = startedAt; bestSessionId = sid; }
+        }
+        if (bestSessionId) {
+          const sets = sessions.get(bestSessionId)!;
+          sets.sort((a, b) => a.set_number - b.set_number);
+          lastSetsMap.set(exId, sets.map((s) => ({
+            setNumber: s.set_number,
+            weight: s.weight,
+            reps: s.reps,
+            rpe: s.rpe,
+          })));
+        }
+      }
+    }
+
     // Sort by section order, then exercise order
     const sortedPWEs = allPWEs.sort((a, b) => {
       const sa = sectionMap.get(a.section_id);
@@ -264,13 +309,14 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
         }
       }
 
+      const prevExSets = lastSetsMap.get(pwe.exercise_id) ?? [];
       const workingSets: SetEntry[] = Array.from(
         { length: pwe.working_sets },
         (_, i) => ({
           id: uuidv4(),
           setType: "working" as const,
           setNumber: i + 1,
-          weight: "",
+          weight: prevExSets[i]?.weight?.toString() ?? "",
           reps: "",
           rpe: "",
           saved: false,
@@ -289,7 +335,7 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
         lastMaxWeight: maxWeightMap.get(pwe.exercise_id) ?? null,
         warmupCount: pwe.warmup_sets,
         workingSets,
-        lastSets: [],
+        lastSets: prevExSets,
         substitutions: [],
         substituteExercises: slides,
         sectionName: section?.name,
@@ -958,9 +1004,10 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
               groups.push({ name: sName, notes: entry.sectionNotes, entries: [entry] });
             }
           }
-          return groups.map((group) => (
+          return groups.map((group, idx) => (
             <div key={group.name} className="flex flex-col gap-3">
-              <div className="mt-2">
+              {idx > 0 && <hr className="border-border my-1" />}
+              <div className="mt-1">
                 <h2 className="text-lg font-semibold">{group.name}</h2>
                 {group.notes && (
                   <p className="text-xs text-muted-foreground">{group.notes}</p>
