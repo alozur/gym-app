@@ -393,6 +393,7 @@ export function ExerciseCard({
                 key={s.id}
                 entry={s}
                 exerciseType={entry.exerciseType}
+                exerciseName={entry.exerciseName}
                 onChange={(field, value) => handleSetChange(i, field, value)}
               />
             ))}

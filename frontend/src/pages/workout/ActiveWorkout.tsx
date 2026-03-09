@@ -59,6 +59,29 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
   const [showUnloggedDialog, setShowUnloggedDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
 
+  // Elapsed timer
+  const [elapsed, setElapsed] = useState(() => {
+    const start = new Date(session.started_at).getTime();
+    return Math.max(0, Math.floor((Date.now() - start) / 1000));
+  });
+
+  useEffect(() => {
+    const start = new Date(session.started_at).getTime();
+    const id = setInterval(() => {
+      setElapsed(Math.max(0, Math.floor((Date.now() - start) / 1000)));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [session.started_at]);
+
+  const elapsedDisplay = useMemo(() => {
+    const h = Math.floor(elapsed / 3600);
+    const m = Math.floor((elapsed % 3600) / 60);
+    const s = elapsed % 60;
+    const mm = String(m).padStart(2, "0");
+    const ss = String(s).padStart(2, "0");
+    return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+  }, [elapsed]);
+
   const existingExerciseIds = useMemo(
     () => exercises.map((e) => e.exerciseId),
     [exercises]
@@ -873,8 +896,33 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
     );
   }
 
+  const totalSets = exercises.reduce((sum, e) => sum + e.workingSets.length, 0);
+  const savedSets = exercises.reduce((sum, e) => sum + e.workingSets.filter((s) => s.saved).length, 0);
+  const progressPct = totalSets > 0 ? Math.round((savedSets / totalSets) * 100) : 0;
+
   return (
     <div className="flex flex-col gap-4">
+      {/* Fixed header: timer + progress */}
+      <div className="fixed top-0 left-0 right-0 z-40 bg-background border-b border-border px-4 py-2 flex flex-col gap-1.5">
+        <div className="flex items-center justify-center">
+          <span className="font-mono text-lg font-semibold tabular-nums tracking-wider">
+            {elapsedDisplay}
+          </span>
+        </div>
+        <div className="relative h-5 rounded-full bg-muted overflow-hidden">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-300"
+            style={{ width: `${progressPct}%` }}
+          />
+          <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold tabular-nums mix-blend-difference text-white">
+            {progressPct}%
+          </span>
+        </div>
+      </div>
+
+      {/* Spacer for fixed header */}
+      <div className="h-16" />
+
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold">
