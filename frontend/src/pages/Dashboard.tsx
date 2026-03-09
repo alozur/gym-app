@@ -23,7 +23,14 @@ export default function Dashboard() {
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      const allExercises = await db.exercises.toArray();
+      // Only show exercises that have logged data
+      const progress = await db.exerciseProgress.toArray();
+      const exerciseIdsWithData = new Set(progress.map((p) => p.exercise_id));
+      if (cancelled) return;
+
+      const allExercises = exerciseIdsWithData.size > 0
+        ? await db.exercises.where("id").anyOf([...exerciseIdsWithData]).toArray()
+        : [];
       if (cancelled) return;
       allExercises.sort((a, b) => a.name.localeCompare(b.name));
       setExercises(allExercises);
@@ -90,7 +97,7 @@ export default function Dashboard() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
-                Volume by Muscle Group
+                Volume by Session
               </CardTitle>
             </CardHeader>
             <CardContent>
