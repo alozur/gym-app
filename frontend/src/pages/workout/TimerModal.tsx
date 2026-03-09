@@ -20,7 +20,14 @@ function playCountdownTick() {
   playTone(440, 0.1, 0.2);
 }
 
+function vibrate(pattern: number | number[]) {
+  try {
+    navigator?.vibrate?.(pattern);
+  } catch { /* Vibration not available */ }
+}
+
 function playGoSound() {
+  vibrate([100, 50, 100]); // two short pulses
   try {
     const ctx = new AudioContext();
     [0, 0.15].forEach((offset, i) => {
@@ -38,6 +45,7 @@ function playGoSound() {
 }
 
 function playFinishSound() {
+  vibrate([200, 100, 200, 100, 200]); // three longer pulses
   try {
     const ctx = new AudioContext();
     [0, 0.2, 0.4].forEach((offset) => {
@@ -77,6 +85,34 @@ export function TimerModal({ targetSeconds, exerciseName, onClose }: TimerModalP
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+  }, []);
+
+  // Wake lock to keep screen on during timer
+  useEffect(() => {
+    let wakeLock: WakeLockSentinel | null = null;
+
+    async function acquireWakeLock() {
+      try {
+        if ("wakeLock" in navigator) {
+          wakeLock = await navigator.wakeLock.request("screen");
+        }
+      } catch { /* Wake Lock not available or denied */ }
+    }
+
+    void acquireWakeLock();
+
+    // Re-acquire on visibility change (released when tab becomes hidden)
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        void acquireWakeLock();
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      void wakeLock?.release();
+    };
   }, []);
 
   // Single interval drives all phases via refs
