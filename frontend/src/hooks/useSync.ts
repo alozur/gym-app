@@ -103,6 +103,8 @@ export function useSync(): UseSyncReturn {
         sessions: pendingSessions.map((s) => ({
           id: s.id,
           template_id: s.template_id,
+          phase_workout_id: s.phase_workout_id,
+          user_program_id: s.user_program_id,
           year_week: s.year_week,
           week_type: s.week_type,
           started_at: s.started_at,

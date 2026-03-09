@@ -8,7 +8,6 @@ import {
   type DbPhaseWorkout,
   type DbPhaseWorkoutSection,
   type DbPhaseWorkoutExercise,
-  type DbExercise,
 } from "@/db/index";
 import { useAuthContext } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";

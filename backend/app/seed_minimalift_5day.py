@@ -118,42 +118,42 @@ _P1_D1_STRENGTH = {
     1: [
         _ex('Barbell Squat', 1, '3',
                 rest_period='-',
-                notes="AMRAP — First, work up to a hard 8-10 reps. Then, start a 15 minute timer and perform as many rounds as possible of 3 reps. Track total rounds completed.",
+                notes="First, work up to a hard 8-10 reps. Then, start a 15 minute timer and perform as many rounds as possible of 3 reps. Track total rounds completed.",
                 sub1='Goblet Squat',
                 sub2='Leg Press'),
         _ex('Knee Tuck', 1, '8',
                 rest_period='-',
-                notes="AMRAP — After each set of Squats, perform the core exercise. Then, rest as required before returning to squats"),
+                notes="After each set of Squats, perform the core exercise. Then, rest as required before returning to squats"),
     ],
     2: [
         _ex('Barbell Squat', 1, '3',
                 rest_period='-',
-                notes="AMRAP — First, work up to a hard 8-10 reps. Then, start a 15 minute timer and perform as many rounds as possible of 3 reps. Track total rounds completed.",
+                notes="First, work up to a hard 8-10 reps. Then, start a 15 minute timer and perform as many rounds as possible of 3 reps. Track total rounds completed.",
                 sub1='Goblet Squat',
                 sub2='Leg Press'),
         _ex('Single Leg Lift', 1, '8',
                 rest_period='-',
-                notes="AMRAP — After each set of Squats, perform the core exercise. Then, rest as required before returning to squats"),
+                notes="After each set of Squats, perform the core exercise. Then, rest as required before returning to squats"),
     ],
     3: [
         _ex('Barbell Squat', 1, '3',
                 rest_period='-',
-                notes="AMRAP — First, work up to a hard 8-10 reps. Then, start a 15 minute timer and perform as many rounds as possible of 3 reps. Track total rounds completed.",
+                notes="First, work up to a hard 8-10 reps. Then, start a 15 minute timer and perform as many rounds as possible of 3 reps. Track total rounds completed.",
                 sub1='Goblet Squat',
                 sub2='Leg Press'),
         _ex('Lying Leg Raise', 1, '8',
                 rest_period='-',
-                notes="AMRAP — After each set of Squats, perform the core exercise. Then, rest as required before returning to squats"),
+                notes="After each set of Squats, perform the core exercise. Then, rest as required before returning to squats"),
     ],
     4: [
         _ex('Barbell Squat', 1, '3',
                 rest_period='-',
-                notes="AMRAP — First, work up to a hard 8-10 reps. Then, start a 15 minute timer and perform as many rounds as possible of 3 reps. Track total rounds completed.",
+                notes="First, work up to a hard 8-10 reps. Then, start a 15 minute timer and perform as many rounds as possible of 3 reps. Track total rounds completed.",
                 sub1='Goblet Squat',
                 sub2='Leg Press'),
         _ex('Hanging Knee Raise', 1, '8',
                 rest_period='-',
-                notes="AMRAP — After each set of Squats, perform the core exercise. Then, rest as required before returning to squats"),
+                notes="After each set of Squats, perform the core exercise. Then, rest as required before returning to squats"),
     ],
 }
 
@@ -183,12 +183,11 @@ _P1_D2_WARMUP = [
 _P1_D2_STRENGTH = [
     _ex('Z-Press', 1, '3',
             rest_period='-',
-            notes="AMRAP — First, work up to a hard 8-10 reps on both exercises. Then, start a 15 minute timer and perform as many rounds as possible of 3 reps on each exercise. Rest as needed. Track total rounds completed.",
+            notes="First, work up to a hard 8-10 reps on both exercises. Then, start a 15 minute timer and perform as many rounds as possible of 3 reps on each exercise. Rest as needed. Track total rounds completed.",
             sub1='Dumbbell Overhead Press',
             sub2='Incline Dumbbell Press'),
     _ex('Chin Up', 1, '3',
             rest_period='-',
-            notes="AMRAP",
             sub1='Lat Pulldown',
             sub2='Inverted Row'),
 ]
@@ -230,12 +229,12 @@ _P1_D3_WARMUP = [
 _P1_D3_STRENGTH = [
     _ex('Deadlift', 1, '3',
             rest_period='-',
-            notes="AMRAP — First, work up to a hard 8-10 reps. Then, start a 15 minute timer and perform as many rounds as possible of 3 reps. Track total rounds completed.",
+            notes="First, work up to a hard 8-10 reps. Then, start a 15 minute timer and perform as many rounds as possible of 3 reps. Track total rounds completed.",
             sub1='DB Deadlift',
             sub2='Trap Bar Deadlift'),
     _ex('Hollowbody Hold', 1, '10s',
             rest_period='-',
-            notes="AMRAP — Between each set of Deadlifts, perform a set of Hollow Holds. Rest as needed, then return to Deadlifts. Pick a level of difficulty that is just manageable by the end",
+            notes="Between each set of Deadlifts, perform a set of Hollow Holds. Rest as needed, then return to Deadlifts. Pick a level of difficulty that is just manageable by the end",
             sub1='Plank'),
 ]
 
@@ -270,12 +269,11 @@ _P1_D4_WARMUP = [
 _P1_D4_STRENGTH = [
     _ex('Bench Press', 1, '3',
             rest_period='-',
-            notes="AMRAP — First, work up to a hard 8-10 reps on both exercises. Then, start a 15 minute timer and perform as many rounds as possible of 3 reps on each exercise. Rest as needed. Track total rounds completed.",
+            notes="First, work up to a hard 8-10 reps on both exercises. Then, start a 15 minute timer and perform as many rounds as possible of 3 reps on each exercise. Rest as needed. Track total rounds completed.",
             sub1='Dumbbell Press',
             sub2='Push Up'),
     _ex('Dumbbell Row', 1, '3',
             rest_period='-',
-            notes="AMRAP",
             sub1='Cable Row',
             sub2='Inverted Row'),
 ]
@@ -349,6 +347,24 @@ _P1_D5_METCON = [
 ]
 
 
+# Phase 1 section notes
+_P1_SC_AMRAP_SINGLE = (
+    "First, work up to a hard 8-10 reps. Then, start a 15 minute timer "
+    "and perform as many rounds as possible of 3 reps. Track total rounds completed."
+)
+_P1_SC_AMRAP_DUAL = (
+    "First, work up to a hard 8-10 reps on both exercises. Then, start a 15 minute "
+    "timer and perform as many rounds as possible of 3 reps on each exercise. Rest "
+    "as needed. Track total rounds completed."
+)
+_P1_SWOLE_EXTRA = "For additional gains, you can increase by 1 to 2 sets per exercise."
+_P1_SUPERSET = "Perform as a superset - minimal rest between exercises."
+_P1_ACC_TIMED_CIRCUIT = (
+    "Perform both exercises as a timed circuit. No rest between exercises. "
+    "30s rest between rounds."
+)
+
+
 def _build_phase1_workouts() -> list[dict]:
     workouts: list[dict] = []
     for week in range(1, 5):
@@ -356,7 +372,7 @@ def _build_phase1_workouts() -> list[dict]:
             "Lower Body 1", 0, week,
             [
                 ("Warm Up", None, _P1_D1_WARMUP[week]),
-                ("Strength & Condition", None, _P1_D1_STRENGTH[week]),
+                ("Strength & Condition", _P1_SC_AMRAP_SINGLE, _P1_D1_STRENGTH[week]),
                 ("Swole & Flexy", None, _P1_D1_SWOLE),
                 ("Accessories", None, _P1_D1_ACC),
             ],
@@ -365,27 +381,27 @@ def _build_phase1_workouts() -> list[dict]:
             "Upper Body 1", 1, week,
             [
                 ("Warm Up", None, _P1_D2_WARMUP),
-                ("Strength & Condition", None, _P1_D2_STRENGTH),
-                ("Swole & Flexy", None, _P1_D2_SWOLE),
-                ("Accessories", None, _P1_D2_ACC),
+                ("Strength & Condition", _P1_SC_AMRAP_DUAL, _P1_D2_STRENGTH),
+                ("Swole & Flexy", _P1_SWOLE_EXTRA, _P1_D2_SWOLE),
+                ("Accessories", _P1_SUPERSET, _P1_D2_ACC),
             ],
         ))
         workouts.append(_workout(
             "Lower Body 2", 2, week,
             [
                 ("Warm Up", None, _P1_D3_WARMUP),
-                ("Strength & Condition", None, _P1_D3_STRENGTH),
+                ("Strength & Condition", _P1_SC_AMRAP_SINGLE, _P1_D3_STRENGTH),
                 ("Swole & Flexy", None, _P1_D3_SWOLE),
-                ("Accessories", None, _P1_D3_ACC),
+                ("Accessories", _P1_ACC_TIMED_CIRCUIT, _P1_D3_ACC),
             ],
         ))
         workouts.append(_workout(
             "Upper Body 2", 3, week,
             [
                 ("Warm Up", None, _P1_D4_WARMUP),
-                ("Strength & Condition", None, _P1_D4_STRENGTH),
+                ("Strength & Condition", _P1_SC_AMRAP_DUAL, _P1_D4_STRENGTH),
                 ("Swole & Flexy", None, _P1_D4_SWOLE),
-                ("Accessories", None, _P1_D4_ACC),
+                ("Accessories", _P1_SUPERSET, _P1_D4_ACC),
             ],
         ))
         workouts.append(_workout(
@@ -393,7 +409,7 @@ def _build_phase1_workouts() -> list[dict]:
             [
                 ("Warm Up", None, _P1_D5_WARMUP),
                 ("Strength & Condition", None, _P1_D5_STRENGTH),
-                ("Swole & Flexy", None, _P1_D5_SWOLE),
+                ("Swole & Flexy", _P1_SUPERSET, _P1_D5_SWOLE),
                 ("Metabolic Conditioning", None, _P1_D5_METCON),
             ],
         ))
@@ -438,7 +454,7 @@ _P2_D1_STRENGTH = {
                 sub2='Leg Press'),
         _ex('Hanging Knee Raise', 1, '8',
                 rest_period='-',
-                notes="AMRAP — After each set of Squats, perform the core exercise. Then, rest as required before returning to squats",
+                notes="After each set of Squats, perform the core exercise. Then, rest as required before returning to squats",
                 sub1='Lying Leg Raise'),
     ],
     2: [
@@ -459,7 +475,7 @@ _P2_D1_STRENGTH = {
                 sub2='Leg Press'),
         _ex('Hanging Knee Raise', 1, '8',
                 rest_period='-',
-                notes="AMRAP — After each set of Squats, perform the core exercise. Then, rest as required before returning to squats",
+                notes="After each set of Squats, perform the core exercise. Then, rest as required before returning to squats",
                 sub1='Lying Leg Raise'),
     ],
     4: [
@@ -470,7 +486,7 @@ _P2_D1_STRENGTH = {
                 sub2='Leg Press'),
         _ex('Hanging Knee Raise', 1, '8',
                 rest_period='-',
-                notes="AMRAP — After each set of Squats, perform the core exercise. Then, rest as required before returning to squats",
+                notes="After each set of Squats, perform the core exercise. Then, rest as required before returning to squats",
                 sub1='Lying Leg Raise'),
     ],
 }
@@ -697,48 +713,44 @@ _P2_D4_STRENGTH = {
     1: [
         _ex('Bench Press', 1, '3',
                 rest_period='-',
-                notes="AMRAP — Warm up as required. Set a timer for 20 minutes. E2MOM, do the following: Minute 1: 1 set of 5 at 6 RIR Minute 2: 1 set of 5 at 4 RIR Minute 3-10: Sets of 3-5 at 3 RIR",
+                notes="Warm up as required. Set a timer for 20 minutes. E2MOM, do the following: Minute 1: 1 set of 5 at 6 RIR Minute 2: 1 set of 5 at 4 RIR Minute 3-10: Sets of 3-5 at 3 RIR",
                 sub1='Dumbbell Press',
                 sub2='Push Up'),
         _ex('Dumbbell Row', 1, '3',
                 rest_period='-',
-                notes="AMRAP",
                 sub1='Cable Row',
                 sub2='Inverted Row'),
     ],
     2: [
         _ex('Bench Press', 1, '3',
                 rest_period='-',
-                notes="AMRAP — Warm up as required. Set a timer for 20 minutes. E2MOM, do the following: Minute 1: 1 set of 5 at 6 RIR Minute 2: 1 set of 5 at 4 RIR Minute 3-10: Sets of 3-5 at 2-3 RIR",
+                notes="Warm up as required. Set a timer for 20 minutes. E2MOM, do the following: Minute 1: 1 set of 5 at 6 RIR Minute 2: 1 set of 5 at 4 RIR Minute 3-10: Sets of 3-5 at 2-3 RIR",
                 sub1='Dumbbell Press',
                 sub2='Push Up'),
         _ex('Dumbbell Row', 1, '3',
                 rest_period='-',
-                notes="AMRAP",
                 sub1='Cable Row',
                 sub2='Inverted Row'),
     ],
     3: [
         _ex('Bench Press', 1, '3',
                 rest_period='-',
-                notes="AMRAP — Warm up as required. Set a timer for 20 minutes. E2MOM, do the following: Minute 1: 1 set of 5 at 6 RIR Minute 2: 1 set of 5 at 4 RIR Minute 3-10: Sets of 3-5 at 2-3 RIR",
+                notes="Warm up as required. Set a timer for 20 minutes. E2MOM, do the following: Minute 1: 1 set of 5 at 6 RIR Minute 2: 1 set of 5 at 4 RIR Minute 3-10: Sets of 3-5 at 2-3 RIR",
                 sub1='Dumbbell Press',
                 sub2='Push Up'),
         _ex('Dumbbell Row', 1, '3',
                 rest_period='-',
-                notes="AMRAP",
                 sub1='Cable Row',
                 sub2='Inverted Row'),
     ],
     4: [
         _ex('Bench Press', 1, '3',
                 rest_period='-',
-                notes="AMRAP — Warm up as required. Set a timer for 20 minutes. E2MOM, do the following: Minute 1: 1 set of 5 at 6 RIR Minute 2: 1 set of 5 at 4 RIR Minute 3-10: Sets of 3-5 at 1-2 RIR",
+                notes="Warm up as required. Set a timer for 20 minutes. E2MOM, do the following: Minute 1: 1 set of 5 at 6 RIR Minute 2: 1 set of 5 at 4 RIR Minute 3-10: Sets of 3-5 at 1-2 RIR",
                 sub1='Dumbbell Press',
                 sub2='Push Up'),
         _ex('Dumbbell Row', 1, '3',
                 rest_period='-',
-                notes="AMRAP",
                 sub1='Cable Row',
                 sub2='Inverted Row'),
     ],
@@ -807,6 +819,33 @@ _P2_D5_METCON = [
 ]
 
 
+# Phase 2 section notes
+_P2_SC_EMOM_SQUAT = (
+    "Warm up as required. Set a timer for 10 minutes. EMOM, do the following: "
+    "Minute 1: 1 set of 5 at 6 RIR. After each set of the main exercise, "
+    "perform the core exercise. Rest as required before returning."
+)
+_P2_SC_E2MOM_DUAL = (
+    "Warm up as required. Set a timer for 20 minutes. E2MOM, do the following: "
+    "perform sets of 3-5 reps on each exercise. Rest as needed."
+)
+_P2_SC_EMOM_DL = (
+    "Warm up as required. Set a timer for 10 minutes. EMOM, do the following: "
+    "Minute 1: 1 set of 5 at 6 RIR. Between each set of the main exercise, "
+    "perform the secondary exercise. Rest as needed."
+)
+_P2_ACC_SUPERSET = "Perform as a superset - no rest between exercises."
+_P2_SUPERSET = "Perform as a superset - minimal rest between exercises."
+_P2_ACC_SUPERSET_HOLD = (
+    "2 second hold at the top of each rep. Perform as a superset. "
+    "Minimal rest between exercises."
+)
+_P2_ACC_TIMED_CIRCUIT = (
+    "Perform both exercises as a timed circuit. No rest between exercises. "
+    "30s rest between rounds."
+)
+
+
 def _build_phase2_workouts() -> list[dict]:
     workouts: list[dict] = []
     for week in range(1, 5):
@@ -814,7 +853,7 @@ def _build_phase2_workouts() -> list[dict]:
             "Lower Body 1", 0, week,
             [
                 ("Warm Up", None, _P2_D1_WARMUP[week]),
-                ("Strength & Condition", None, _P2_D1_STRENGTH[week]),
+                ("Strength & Condition", _P2_SC_EMOM_SQUAT, _P2_D1_STRENGTH[week]),
                 ("Swole & Flexy", None, _P2_D1_SWOLE),
                 ("Accessories", None, _P2_D1_ACC),
             ],
@@ -823,27 +862,27 @@ def _build_phase2_workouts() -> list[dict]:
             "Upper Body 1", 1, week,
             [
                 ("Warm Up", None, _P2_D2_WARMUP),
-                ("Strength & Condition", None, _P2_D2_STRENGTH[week]),
+                ("Strength & Condition", _P2_SC_E2MOM_DUAL, _P2_D2_STRENGTH[week]),
                 ("Swole & Flexy", None, _P2_D2_SWOLE),
-                ("Accessories", None, _P2_D2_ACC),
+                ("Accessories", _P2_ACC_SUPERSET, _P2_D2_ACC),
             ],
         ))
         workouts.append(_workout(
             "Lower Body 2", 2, week,
             [
                 ("Warm Up", None, _P2_D3_WARMUP),
-                ("Strength & Condition", None, _P2_D3_STRENGTH[week]),
+                ("Strength & Condition", _P2_SC_EMOM_DL, _P2_D3_STRENGTH[week]),
                 ("Swole & Flexy", None, _P2_D3_SWOLE[week]),
-                ("Accessories", None, _P2_D3_ACC),
+                ("Accessories", _P2_ACC_TIMED_CIRCUIT, _P2_D3_ACC),
             ],
         ))
         workouts.append(_workout(
             "Upper Body 2", 3, week,
             [
                 ("Warm Up", None, _P2_D4_WARMUP),
-                ("Strength & Condition", None, _P2_D4_STRENGTH[week]),
+                ("Strength & Condition", _P2_SC_E2MOM_DUAL, _P2_D4_STRENGTH[week]),
                 ("Swole & Flexy", None, _P2_D4_SWOLE),
-                ("Accessories", None, _P2_D4_ACC),
+                ("Accessories", _P2_ACC_SUPERSET_HOLD, _P2_D4_ACC),
             ],
         ))
         workouts.append(_workout(
@@ -851,7 +890,7 @@ def _build_phase2_workouts() -> list[dict]:
             [
                 ("Warm Up", None, _P2_D5_WARMUP),
                 ("Strength & Condition", None, _P2_D5_STRENGTH),
-                ("Swole & Flexy", None, _P2_D5_SWOLE),
+                ("Swole & Flexy", _P2_SUPERSET, _P2_D5_SWOLE),
                 ("Metabolic Conditioning", None, _P2_D5_METCON),
             ],
         ))
@@ -1058,11 +1097,19 @@ _P3_D5_STRENGTH = [
 _P3_D5_METCON = [
     _ex('Burpee', 1, '10',
             rest_period='-',
-            notes="AMRAP — Perform AMRAP in 10 minutes of 10 Burpees & 20 KB Swings. Rest as needed"),
+            notes="Perform AMRAP in 10 minutes of 10 Burpees & 20 KB Swings. Rest as needed"),
     _ex('Kettlebell Swing', 1, '20',
-            rest_period='-',
-            notes="AMRAP"),
+            rest_period='-'),
 ]
+
+
+# Phase 3 section notes
+_P3_SUPERSET = "Perform as a superset. Minimal rest between exercises."
+_P3_SC_SUPERSET = "Perform as a superset - minimal rest between exercises."
+_P3_ACC_TIMED_CIRCUIT = (
+    "Perform both exercises as a timed circuit. No rest between exercises. "
+    "30s rest between rounds."
+)
 
 
 def _build_phase3_workouts() -> list[dict]:
@@ -1091,8 +1138,8 @@ def _build_phase3_workouts() -> list[dict]:
             [
                 ("Warm Up", None, _P3_D3_WARMUP),
                 ("Strength & Condition", None, _P3_D3_STRENGTH),
-                ("Swole & Flexy", None, _P3_D3_SWOLE),
-                ("Accessories", None, _P3_D3_ACC),
+                ("Swole & Flexy", _P3_SUPERSET, _P3_D3_SWOLE),
+                ("Accessories", _P3_ACC_TIMED_CIRCUIT, _P3_D3_ACC),
             ],
         ))
         workouts.append(_workout(
@@ -1108,7 +1155,7 @@ def _build_phase3_workouts() -> list[dict]:
             "Full Body", 4, week,
             [
                 ("Warm Up", None, _P3_D5_WARMUP),
-                ("Strength & Condition", None, _P3_D5_STRENGTH),
+                ("Strength & Condition", _P3_SC_SUPERSET, _P3_D5_STRENGTH),
                 ("Metabolic Conditioning", None, _P3_D5_METCON),
             ],
         ))
