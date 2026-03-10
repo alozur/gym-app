@@ -11,7 +11,6 @@ import {
   Legend,
 } from "recharts";
 import { db } from "@/db/index";
-import { useUnitPreference } from "@/hooks/useUnitPreference";
 
 interface ProgressChartProps {
   exerciseId: string;
@@ -43,7 +42,6 @@ function getCutoffDate(range: TimeRange): string | null {
 export default function ProgressChart({ exerciseId }: ProgressChartProps) {
   const [data, setData] = useState<ChartPoint[]>([]);
   const [range, setRange] = useState<TimeRange>("6m");
-  const { unit, convertWeight } = useUnitPreference();
 
   useEffect(() => {
     if (!exerciseId) return;
@@ -111,13 +109,8 @@ export default function ProgressChart({ exerciseId }: ProgressChartProps) {
 
   const filteredData = useMemo(() => {
     const cutoff = getCutoffDate(range);
-    const filtered = cutoff ? data.filter((d) => d.sortKey >= cutoff) : data;
-    return filtered.map((d) => ({
-      ...d,
-      maxWeight: convertWeight(d.maxWeight, "kg"),
-      volume: convertWeight(d.volume, "kg"),
-    }));
-  }, [data, range, convertWeight]);
+    return cutoff ? data.filter((d) => d.sortKey >= cutoff) : data;
+  }, [data, range]);
 
   if (data.length === 0) {
     return (
@@ -163,14 +156,14 @@ export default function ProgressChart({ exerciseId }: ProgressChartProps) {
               yAxisId="weight"
               tick={{ fontSize: 10 }}
               stroke="var(--chart-1)"
-              label={{ value: `Weight (${unit})`, angle: -90, position: "insideLeft", style: { fontSize: 10, fill: "var(--chart-1)" } }}
+              label={{ value: "Weight (kg)", angle: -90, position: "insideLeft", style: { fontSize: 10, fill: "var(--chart-1)" } }}
             />
             <YAxis
               yAxisId="volume"
               orientation="right"
               tick={{ fontSize: 10 }}
               stroke="var(--chart-2)"
-              label={{ value: `Volume (${unit})`, angle: 90, position: "insideRight", style: { fontSize: 10, fill: "var(--chart-2)" } }}
+              label={{ value: "Volume (kg)", angle: 90, position: "insideRight", style: { fontSize: 10, fill: "var(--chart-2)" } }}
             />
             <Tooltip
               contentStyle={{
@@ -186,7 +179,7 @@ export default function ProgressChart({ exerciseId }: ProgressChartProps) {
               dataKey="volume"
               fill="var(--chart-2)"
               opacity={0.3}
-              name={`Volume (${unit})`}
+              name={"Volume (kg)"}
               radius={[2, 2, 0, 0]}
             />
             <Line
@@ -196,7 +189,7 @@ export default function ProgressChart({ exerciseId }: ProgressChartProps) {
               stroke="var(--chart-1)"
               strokeWidth={2}
               dot={{ r: 3 }}
-              name={`Max Weight (${unit})`}
+              name={"Max Weight (kg)"}
             />
           </ComposedChart>
         </ResponsiveContainer>

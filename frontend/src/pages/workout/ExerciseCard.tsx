@@ -16,6 +16,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { SetRow } from "./SetRow";
+import { SwipeableRow } from "./SwipeableRow";
 import type { ExerciseEntry, SetEntry, SubstituteExercise } from "./types";
 
 const ProgressChart = lazy(() => import("@/charts/ProgressChart"));
@@ -34,6 +35,7 @@ interface ExerciseCardProps {
   ) => void;
   onAddSet: () => void;
   onRemoveSet: () => void;
+  onRemoveSetAt?: (index: number) => void;
 }
 
 export function ExerciseCard({
@@ -43,6 +45,7 @@ export function ExerciseCard({
   onSubstitute,
   onAddSet,
   onRemoveSet,
+  onRemoveSetAt,
 }: ExerciseCardProps) {
   const [showNotes, setShowNotes] = useState(false);
   const [notesContent, setNotesContent] = useState<string | null>(null);
@@ -405,13 +408,18 @@ export function ExerciseCard({
               </div>
             </div>
             {entry.workingSets.map((s, i) => (
-              <SetRow
+              <SwipeableRow
                 key={s.id}
-                entry={s}
-                exerciseType={entry.exerciseType}
-                exerciseName={entry.exerciseName}
-                onChange={(field, value) => handleSetChange(i, field, value)}
-              />
+                onDelete={() => onRemoveSetAt ? onRemoveSetAt(i) : onRemoveSet()}
+                disabled={s.saved || entry.workingSets.length <= 1}
+              >
+                <SetRow
+                  entry={s}
+                  exerciseType={entry.exerciseType}
+                  exerciseName={entry.exerciseName}
+                  onChange={(field, value) => handleSetChange(i, field, value)}
+                />
+              </SwipeableRow>
             ))}
           </div>
 

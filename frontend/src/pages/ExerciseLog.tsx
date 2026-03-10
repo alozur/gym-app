@@ -13,7 +13,6 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useUnitPreference } from "@/hooks/useUnitPreference";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -31,7 +30,6 @@ interface WeekRow {
 
 export default function ExerciseLog() {
   const { id } = useParams<{ id: string }>();
-  const { displayWeight } = useUnitPreference();
   const [exercise, setExercise] = useState<DbExercise | null>(null);
   const [progress, setProgress] = useState<DbExerciseProgress[]>([]);
   const [sets, setSets] = useState<DbWorkoutSet[]>([]);
@@ -231,7 +229,7 @@ export default function ExerciseLog() {
                               >
                                 {s ? (
                                   <span className="font-mono text-xs">
-                                    {displayWeight(s.weight)}&times;{s.reps}
+                                    {s.weight} kg&times;{s.reps}
                                   </span>
                                 ) : (
                                   <span className="text-muted-foreground">
@@ -244,7 +242,7 @@ export default function ExerciseLog() {
                           <td className="py-2 px-2 text-center whitespace-nowrap">
                             {row.maxWeight != null ? (
                               <span className="font-mono text-xs font-semibold">
-                                {displayWeight(row.maxWeight)}
+                                {row.maxWeight} kg
                               </span>
                             ) : (
                               <span className="text-muted-foreground">--</span>

@@ -20,5 +20,6 @@ export type {
   DbPhaseWorkout,
   DbPhaseWorkoutSection,
   DbPhaseWorkoutExercise,
+  DbBodyWeight,
 } from "./schema.ts";
 export { GymTrackerDB } from "./schema.ts";
