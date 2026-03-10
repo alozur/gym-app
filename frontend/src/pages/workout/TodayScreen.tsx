@@ -220,8 +220,16 @@ export function TodayScreen({ program, enrollment, onStartWorkout, onAdHoc }: To
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="flex flex-col gap-4">
+        <div className="h-8 w-48 rounded bg-muted animate-pulse" />
+        <div className="h-10 w-full rounded-lg bg-muted animate-pulse" />
+        {[1, 2, 3].map((n) => (
+          <div key={n} className="rounded-lg border border-border p-3 flex flex-col gap-2">
+            <div className="h-4 w-32 rounded bg-muted animate-pulse" />
+            <div className="h-3 w-48 rounded bg-muted animate-pulse" />
+          </div>
+        ))}
+        <div className="h-12 w-full rounded bg-muted animate-pulse" />
       </div>
     );
   }
@@ -319,14 +327,28 @@ export function TodayScreen({ program, enrollment, onStartWorkout, onAdHoc }: To
                   className="rounded-md border border-border p-3"
                 >
                   <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-medium text-sm">
-                        {ex?.name ?? "Unknown"}
-                      </p>
-                      {ex?.equipment && (
-                        <p className="text-xs text-muted-foreground">
-                          {ex.equipment}
+                    <div className="flex items-center gap-2">
+                      <div>
+                        <p className="font-medium text-sm">
+                          {ex?.name ?? "Unknown"}
                         </p>
+                        {ex?.equipment && (
+                          <p className="text-xs text-muted-foreground">
+                            {ex.equipment}
+                          </p>
+                        )}
+                      </div>
+                      {ex?.youtube_url && (
+                        <button
+                          type="button"
+                          onClick={() => window.open(ex.youtube_url!, "_blank", "noopener,noreferrer")}
+                          className="shrink-0 p-1"
+                          aria-label="Watch video"
+                        >
+                          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M21.8 8.001a2.75 2.75 0 0 0-1.94-1.93C18.12 5.5 12 5.5 12 5.5s-6.12 0-7.86.57A2.75 2.75 0 0 0 2.2 8c-.56 1.74-.56 5.37-.56 5.37s0 3.63.56 5.37a2.75 2.75 0 0 0 1.94 1.93c1.74.57 7.86.57 7.86.57s6.12 0 7.86-.57a2.75 2.75 0 0 0 1.94-1.93c.56-1.74.56-5.37.56-5.37s0-3.63-.56-5.37ZM9.75 15.02V8.98l5.25 3.02-5.25 3.02Z" fill="#FF0000"/>
+                          </svg>
+                        </button>
                       )}
                     </div>
                     {lastWeight !== null && (

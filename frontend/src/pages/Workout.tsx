@@ -133,8 +133,15 @@ export default function Workout() {
     return (
       <div className="min-h-screen bg-background text-foreground">
         <main className="mx-auto max-w-md px-4 py-8">
-          <div className="flex items-center justify-center py-16">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <div className="flex flex-col gap-4">
+            <div className="h-8 w-40 rounded bg-muted animate-pulse" />
+            <div className="h-10 w-full rounded-lg bg-muted animate-pulse" />
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="rounded-lg border border-border p-3 flex flex-col gap-2">
+                <div className="h-4 w-32 rounded bg-muted animate-pulse" />
+                <div className="h-3 w-48 rounded bg-muted animate-pulse" />
+              </div>
+            ))}
           </div>
         </main>
       </div>

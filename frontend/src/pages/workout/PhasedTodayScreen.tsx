@@ -35,6 +35,7 @@ interface SectionWithExercises {
   exercises: (DbPhaseWorkoutExercise & {
     exerciseName: string;
     equipment: string | null;
+    youtubeUrl: string | null;
     lastWeight: number | null;
     sub1Name: string | null;
     sub2Name: string | null;
@@ -154,6 +155,7 @@ export function PhasedTodayScreen({
             ...pwe,
             exerciseName: exMap.get(pwe.exercise_id)?.name ?? "Unknown",
             equipment: exMap.get(pwe.exercise_id)?.equipment ?? null,
+            youtubeUrl: exMap.get(pwe.exercise_id)?.youtube_url ?? null,
             lastWeight: maxWeightMap.get(pwe.exercise_id) ?? null,
             sub1Name: pwe.substitute1_exercise_id
               ? exMap.get(pwe.substitute1_exercise_id)?.name ?? null
@@ -179,8 +181,19 @@ export function PhasedTodayScreen({
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="flex flex-col gap-4">
+        <div className="h-8 w-48 rounded bg-muted animate-pulse" />
+        <div className="h-14 w-full rounded-lg bg-muted animate-pulse" />
+        <div className="rounded-xl border border-border p-4 flex flex-col gap-3">
+          <div className="h-5 w-32 rounded bg-muted animate-pulse" />
+          {[1, 2, 3, 4].map((n) => (
+            <div key={n} className="rounded-md border border-border p-3 flex flex-col gap-2">
+              <div className="h-4 w-36 rounded bg-muted animate-pulse" />
+              <div className="h-3 w-24 rounded-full bg-muted animate-pulse" />
+            </div>
+          ))}
+        </div>
+        <div className="h-12 w-full rounded bg-muted animate-pulse" />
       </div>
     );
   }
@@ -242,14 +255,28 @@ export function PhasedTodayScreen({
                         className="rounded-md border border-border p-3"
                       >
                         <div className="flex items-start justify-between">
-                          <div>
-                            <p className="font-medium text-sm">
-                              {ex.exerciseName}
-                            </p>
-                            {ex.equipment && (
-                              <p className="text-xs text-muted-foreground">
-                                {ex.equipment}
+                          <div className="flex items-center gap-2">
+                            <div>
+                              <p className="font-medium text-sm">
+                                {ex.exerciseName}
                               </p>
+                              {ex.equipment && (
+                                <p className="text-xs text-muted-foreground">
+                                  {ex.equipment}
+                                </p>
+                              )}
+                            </div>
+                            {ex.youtubeUrl && (
+                              <button
+                                type="button"
+                                onClick={() => window.open(ex.youtubeUrl!, "_blank", "noopener,noreferrer")}
+                                className="shrink-0 p-1"
+                                aria-label="Watch video"
+                              >
+                                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M21.8 8.001a2.75 2.75 0 0 0-1.94-1.93C18.12 5.5 12 5.5 12 5.5s-6.12 0-7.86.57A2.75 2.75 0 0 0 2.2 8c-.56 1.74-.56 5.37-.56 5.37s0 3.63.56 5.37a2.75 2.75 0 0 0 1.94 1.93c1.74.57 7.86.57 7.86.57s6.12 0 7.86-.57a2.75 2.75 0 0 0 1.94-1.93c.56-1.74.56-5.37.56-5.37s0-3.63-.56-5.37ZM9.75 15.02V8.98l5.25 3.02-5.25 3.02Z" fill="#FF0000"/>
+                                </svg>
+                              </button>
                             )}
                           </div>
                           {ex.lastWeight !== null && (
