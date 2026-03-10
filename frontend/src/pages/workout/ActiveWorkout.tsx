@@ -754,6 +754,18 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
     );
   }
 
+  function handleRemoveWorkingSetAt(exerciseId: string, index: number) {
+    setExercises((prev) =>
+      prev.map((e) => {
+        if (e.exerciseId !== exerciseId) return e;
+        if (e.workingSets.length <= 1) return e;
+        const sets = e.workingSets.filter((_, i) => i !== index)
+          .map((s, i) => ({ ...s, setNumber: i + 1 }));
+        return { ...e, workingSets: sets };
+      })
+    );
+  }
+
   async function handleCancelWorkout() {
     // Delete all sets for this session, then delete the session itself
     await db.workoutSets.where("session_id").equals(session.id).delete();
@@ -977,8 +989,26 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="flex flex-col gap-4 py-4">
+        {[1, 2, 3].map((n) => (
+          <div key={n} className="rounded-xl border border-border p-4 flex flex-col gap-3">
+            <div className="h-5 w-40 rounded bg-muted animate-pulse" />
+            <div className="flex gap-2">
+              <div className="h-4 w-20 rounded-full bg-muted animate-pulse" />
+              <div className="h-4 w-16 rounded-full bg-muted animate-pulse" />
+            </div>
+            <div className="flex flex-col gap-2 mt-1">
+              {[1, 2, 3].map((s) => (
+                <div key={s} className="flex gap-2">
+                  <div className="h-[44px] w-6 rounded bg-muted animate-pulse" />
+                  <div className="h-[44px] flex-1 rounded bg-muted animate-pulse" />
+                  <div className="h-[44px] flex-1 rounded bg-muted animate-pulse" />
+                </div>
+              ))}
+            </div>
+            <div className="h-[44px] w-full rounded bg-muted animate-pulse" />
+          </div>
+        ))}
       </div>
     );
   }
@@ -1063,6 +1093,7 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
                   onSubstitute={handleSubstitute}
                   onAddSet={() => handleAddWorkingSet(entry.exerciseId)}
                   onRemoveSet={() => handleRemoveWorkingSet(entry.exerciseId)}
+                  onRemoveSetAt={(i) => handleRemoveWorkingSetAt(entry.exerciseId, i)}
                 />
               ))}
             </div>
@@ -1078,6 +1109,7 @@ export function ActiveWorkout({ session, templateName, onFinished }: ActiveWorko
             onSubstitute={handleSubstitute}
             onAddSet={() => handleAddWorkingSet(entry.exerciseId)}
             onRemoveSet={() => handleRemoveWorkingSet(entry.exerciseId)}
+            onRemoveSetAt={(i) => handleRemoveWorkingSetAt(entry.exerciseId, i)}
           />
         ));
       })()}

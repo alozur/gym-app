@@ -7,12 +7,20 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import ProgressChart from "@/charts/ProgressChart";
 import VolumeChart from "@/charts/VolumeChart";
 import RecordsList from "@/charts/RecordsList";
 import WorkoutHistory from "@/charts/WorkoutHistory";
+import BodyWeightChart from "@/charts/BodyWeightChart";
 
-const TABS = ["Progress", "Volume", "History"] as const;
+const TABS = ["Progress", "Volume", "History", "Body"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function Dashboard() {
@@ -72,17 +80,18 @@ export default function Dashboard() {
               <CardContent>
                 {exercises.length > 0 ? (
                   <>
-                    <select
-                      value={selectedExerciseId}
-                      onChange={(e) => setSelectedExerciseId(e.target.value)}
-                      className="mb-4 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    >
-                      {exercises.map((ex) => (
-                        <option key={ex.id} value={ex.id}>
-                          {ex.name}
-                        </option>
-                      ))}
-                    </select>
+                    <Select value={selectedExerciseId} onValueChange={setSelectedExerciseId}>
+                      <SelectTrigger className="mb-4 w-full">
+                        <SelectValue placeholder="Select exercise" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {exercises.map((ex) => (
+                          <SelectItem key={ex.id} value={ex.id}>
+                            {ex.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <ProgressChart exerciseId={selectedExerciseId} />
                   </>
                 ) : (
@@ -124,6 +133,17 @@ export default function Dashboard() {
             <h2 className="mb-3 text-lg font-semibold">Workout History</h2>
             <WorkoutHistory />
           </div>
+        )}
+
+        {activeTab === "Body" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Body Weight</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <BodyWeightChart />
+            </CardContent>
+          </Card>
         )}
       </main>
     </div>

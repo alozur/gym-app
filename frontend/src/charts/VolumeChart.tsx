@@ -9,7 +9,6 @@ import {
   Tooltip,
 } from "recharts";
 import { db } from "@/db/index";
-import { useUnitPreference } from "@/hooks/useUnitPreference";
 
 interface SessionVolume {
   date: string;
@@ -29,7 +28,6 @@ const RANGE_OPTIONS: { value: SessionRange; label: string }[] = [
 export default function VolumeChart() {
   const [data, setData] = useState<SessionVolume[]>([]);
   const [range, setRange] = useState<SessionRange>("7");
-  const { unit, convertWeight } = useUnitPreference();
 
   useEffect(() => {
     let cancelled = false;
@@ -78,12 +76,8 @@ export default function VolumeChart() {
 
   const filteredData = useMemo(() => {
     const count = range === "all" ? data.length : parseInt(range);
-    const sliced = data.slice(-count);
-    return sliced.map((d) => ({
-      ...d,
-      volume: Math.round(convertWeight(d.volume, "kg")),
-    }));
-  }, [data, range, convertWeight]);
+    return data.slice(-count);
+  }, [data, range]);
 
   if (data.length === 0) {
     return (
@@ -133,7 +127,7 @@ export default function VolumeChart() {
             dataKey="volume"
             fill="var(--chart-2)"
             radius={[4, 4, 0, 0]}
-            name={`Volume (${unit})`}
+            name="Volume (kg)"
           />
         </BarChart>
       </ResponsiveContainer>

@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { db, type DbExercise } from "@/db/index";
 import { Card, CardContent } from "@/components/ui/card";
 import { Trophy } from "lucide-react";
-import { useUnitPreference } from "@/hooks/useUnitPreference";
 
 interface PersonalRecord {
   exerciseName: string;
@@ -23,7 +22,6 @@ function estimate1RM(weight: number, reps: number): number {
 
 export default function RecordsList({ exerciseId }: RecordsListProps) {
   const [records, setRecords] = useState<PersonalRecord[]>([]);
-  const { displayWeight } = useUnitPreference();
 
   useEffect(() => {
     let cancelled = false;
@@ -104,12 +102,12 @@ export default function RecordsList({ exerciseId }: RecordsListProps) {
                 <p className="truncate text-sm font-medium">{pr.exerciseName}</p>
               )}
               <p className="text-xs text-muted-foreground">
-                Best set: {displayWeight(pr.maxWeight)} x {pr.reps} {pr.reps === 1 ? "rep" : "reps"}
+                Best set: {pr.maxWeight} kg x {pr.reps} {pr.reps === 1 ? "rep" : "reps"}
               </p>
             </div>
             <div className="text-right shrink-0">
               <p className="font-mono text-sm font-semibold">
-                {displayWeight(pr.estimated1RM)}
+                {pr.estimated1RM} kg
               </p>
               <p className="text-[10px] text-muted-foreground">Est. 1RM</p>
             </div>

@@ -28,7 +28,6 @@ export default function Profile() {
 
   const [displayName, setDisplayName] = useState(user?.display_name ?? "");
   const [isSavingName, setIsSavingName] = useState(false);
-  const [isSavingUnit, setIsSavingUnit] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const memberSince = user?.created_at
@@ -56,25 +55,6 @@ export default function Profile() {
       setSaveError(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setIsSavingName(false);
-    }
-  }
-
-  async function handleUnitToggle(unit: "kg" | "lbs") {
-    if (!user || unit === user.preferred_unit) return;
-    setIsSavingUnit(true);
-    setSaveError(null);
-    try {
-      const updated = await api.put<UserResponse>("/auth/me", {
-        preferred_unit: unit,
-      });
-      await db.users.update(user.id, {
-        preferred_unit: updated.preferred_unit as "kg" | "lbs",
-      });
-      dispatch({ type: "SET_USER", payload: updated });
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Failed to save");
-    } finally {
-      setIsSavingUnit(false);
     }
   }
 
@@ -136,35 +116,6 @@ export default function Profile() {
                   {isSavingName ? "Saving..." : "Save"}
                 </Button>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Unit Preference */}
-        <Card className="mb-4">
-          <CardHeader>
-            <CardTitle className="text-base">Unit Preference</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-1 rounded-lg bg-muted p-1">
-              <Button
-                variant={user.preferred_unit === "kg" ? "default" : "ghost"}
-                size="sm"
-                className="flex-1"
-                disabled={isSavingUnit}
-                onClick={() => handleUnitToggle("kg")}
-              >
-                kg
-              </Button>
-              <Button
-                variant={user.preferred_unit === "lbs" ? "default" : "ghost"}
-                size="sm"
-                className="flex-1"
-                disabled={isSavingUnit}
-                onClick={() => handleUnitToggle("lbs")}
-              >
-                lbs
-              </Button>
             </div>
           </CardContent>
         </Card>

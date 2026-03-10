@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from "react";
 import { db } from "@/db/index";
 import { Card, CardContent } from "@/components/ui/card";
 import { ChevronLeft, ChevronRight, Clock, Hash, Dumbbell } from "lucide-react";
-import { useUnitPreference } from "@/hooks/useUnitPreference";
 
 interface WorkoutDay {
   id: string;
@@ -36,7 +35,7 @@ export default function WorkoutHistory() {
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const { displayWeight } = useUnitPreference();
+
 
   useEffect(() => {
     let cancelled = false;
@@ -212,7 +211,7 @@ export default function WorkoutHistory() {
                     <Hash className="h-3.5 w-3.5" /> {w.setCount} sets
                   </span>
                   <span className="flex items-center gap-1">
-                    <Dumbbell className="h-3.5 w-3.5" /> {displayWeight(w.volume)}
+                    <Dumbbell className="h-3.5 w-3.5" /> {w.volume} kg
                   </span>
                 </div>
               </CardContent>
