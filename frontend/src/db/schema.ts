@@ -194,6 +194,14 @@ export interface DbPhaseWorkoutExercise {
   sync_status: SyncStatus;
 }
 
+export interface DbBodyWeight {
+  id: string;
+  user_id: string;
+  weight: number;
+  date: string; // YYYY-MM-DD
+  created_at: string;
+}
+
 // ---------------------------------------------------------------------------
 // Dexie database class
 // ---------------------------------------------------------------------------
@@ -214,6 +222,7 @@ export class GymTrackerDB extends Dexie {
   phaseWorkoutSections!: Table<DbPhaseWorkoutSection, string>;
   phaseWorkoutExercises!: Table<DbPhaseWorkoutExercise, string>;
   userPrograms!: Table<DbUserProgram, string>;
+  bodyWeights!: Table<DbBodyWeight, string>;
 
   constructor() {
     super("GymTrackerDB");
@@ -432,6 +441,11 @@ export class GymTrackerDB extends Dexie {
     this.version(7).stores({
       phaseWorkouts:
         "id, phase_id, [phase_id+week_number+day_index], sync_status",
+    });
+
+    // Add body weight tracking table
+    this.version(8).stores({
+      bodyWeights: "id, user_id, date",
     });
   }
 }

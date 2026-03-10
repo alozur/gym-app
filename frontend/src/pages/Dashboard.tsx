@@ -18,8 +18,9 @@ import ProgressChart from "@/charts/ProgressChart";
 import VolumeChart from "@/charts/VolumeChart";
 import RecordsList from "@/charts/RecordsList";
 import WorkoutHistory from "@/charts/WorkoutHistory";
+import BodyWeightChart from "@/charts/BodyWeightChart";
 
-const TABS = ["Progress", "Volume", "History"] as const;
+const TABS = ["Progress", "Volume", "History", "Body"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function Dashboard() {
@@ -132,6 +133,17 @@ export default function Dashboard() {
             <h2 className="mb-3 text-lg font-semibold">Workout History</h2>
             <WorkoutHistory />
           </div>
+        )}
+
+        {activeTab === "Body" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Body Weight</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <BodyWeightChart />
+            </CardContent>
+          </Card>
         )}
       </main>
     </div>
