@@ -23,7 +23,9 @@ def _unique_exercise_count() -> int:
 async def test_seed_populates_exercises(db_session: AsyncSession):
     await seed_exercises(db_session)
 
-    result = await db_session.execute(select(Exercise).where(Exercise.user_id.is_(None)))
+    result = await db_session.execute(
+        select(Exercise).where(Exercise.user_id.is_(None))
+    )
     exercises = result.scalars().all()
 
     # Includes both Jeff Nippard + Minimalift exercises (deduplicated by name)
@@ -61,9 +63,7 @@ async def test_seed_creates_substitutions(db_session: AsyncSession):
 
     assert len(lying_leg_curl.substitutions) == 2
 
-    sub_names = {
-        s.substitute_exercise.name for s in lying_leg_curl.substitutions
-    }
+    sub_names = {s.substitute_exercise.name for s in lying_leg_curl.substitutions}
     assert "Seated Leg Curl" in sub_names
     assert "Nordic Ham Curl" in sub_names
 
@@ -74,6 +74,8 @@ async def test_seed_is_idempotent(db_session: AsyncSession):
     await seed_exercises(db_session)
     await seed_exercises(db_session)
 
-    result = await db_session.execute(select(Exercise).where(Exercise.user_id.is_(None)))
+    result = await db_session.execute(
+        select(Exercise).where(Exercise.user_id.is_(None))
+    )
     exercises = result.scalars().all()
     assert len(exercises) == _unique_exercise_count()

@@ -22,6 +22,8 @@ import type { WeekType } from "./types";
 interface TodayScreenProps {
   program: DbProgram;
   enrollment: DbUserProgram;
+  overrideRoutineIndex?: number;
+  overrideWeekType?: WeekType;
   onStartWorkout: (
     templateId: string,
     weekType: WeekType,
@@ -38,7 +40,7 @@ interface RoutineInfo {
   exerciseNames: string[];
 }
 
-export function TodayScreen({ program, enrollment, onStartWorkout, onAdHoc }: TodayScreenProps) {
+export function TodayScreen({ program, enrollment, overrideRoutineIndex, overrideWeekType, onStartWorkout, onAdHoc }: TodayScreenProps) {
   const [routineInfos, setRoutineInfos] = useState<RoutineInfo[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [selectedExercises, setSelectedExercises] = useState<DbTemplateExercise[]>([]);
@@ -47,10 +49,11 @@ export function TodayScreen({ program, enrollment, onStartWorkout, onAdHoc }: To
   const [subNamesMap, setSubNamesMap] = useState<Map<string, string[]>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
 
-  const isDeload =
+  const enrollmentIsDeload =
     enrollment.weeks_completed % program.deload_every_n_weeks ===
     program.deload_every_n_weeks - 1;
-  const weekType: WeekType = isDeload ? "deload" : "normal";
+  const weekType: WeekType = overrideWeekType ?? (enrollmentIsDeload ? "deload" : "normal");
+  const isDeload = weekType === "deload";
   const weekNumber =
     (enrollment.weeks_completed % program.deload_every_n_weeks) + 1;
 
@@ -111,15 +114,16 @@ export function TodayScreen({ program, enrollment, onStartWorkout, onAdHoc }: To
 
       if (!cancelled) {
         setRoutineInfos(infos);
-        // Auto-select the suggested next routine
-        setSelectedIndex(enrollment.current_routine_index < infos.length ? enrollment.current_routine_index : 0);
+        // Auto-select: override from Programs page, or the suggested next routine
+        const defaultIdx = overrideRoutineIndex ?? enrollment.current_routine_index;
+        setSelectedIndex(defaultIdx < infos.length ? defaultIdx : 0);
         setIsLoading(false);
       }
     }
 
     void load();
     return () => { cancelled = true; };
-  }, [program, weekType]);
+  }, [program, weekType, overrideRoutineIndex, enrollment.current_routine_index]);
 
   // When a routine is selected, load its full exercise details
   useEffect(() => {
@@ -127,8 +131,9 @@ export function TodayScreen({ program, enrollment, onStartWorkout, onAdHoc }: To
     let cancelled = false;
 
     async function loadExercises() {
-      const info = routineInfos[selectedIndex!];
-      if (!info.template) return;
+      if (selectedIndex === null) return;
+      const info = routineInfos[selectedIndex];
+      if (!info?.template) return;
 
       const allTEs = await db.templateExercises
         .where("template_id")

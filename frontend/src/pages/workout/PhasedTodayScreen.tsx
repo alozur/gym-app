@@ -22,6 +22,9 @@ import {
 interface PhasedTodayScreenProps {
   program: DbProgram;
   enrollment: DbUserProgram;
+  overridePhaseIndex?: number;
+  overrideWeekInPhase?: number;
+  overrideDayIndex?: number;
   onStartWorkout: (
     phaseWorkoutId: string,
     programId: string,
@@ -45,17 +48,21 @@ interface SectionWithExercises {
 export function PhasedTodayScreen({
   program,
   enrollment,
+  overridePhaseIndex,
+  overrideWeekInPhase,
+  overrideDayIndex,
   onStartWorkout,
   onAdHoc,
 }: PhasedTodayScreenProps) {
   const [phase, setPhase] = useState<DbProgramPhase | null>(null);
   const [workout, setWorkout] = useState<DbPhaseWorkout | null>(null);
   const [sectionGroups, setSectionGroups] = useState<SectionWithExercises[]>([]);
+  const [daysPerWeek, setDaysPerWeek] = useState(3);
   const [isLoading, setIsLoading] = useState(true);
 
-  const phaseIdx = enrollment.current_phase_index;
-  const weekInPhase = enrollment.current_week_in_phase;
-  const dayIdx = enrollment.current_day_index;
+  const phaseIdx = overridePhaseIndex ?? enrollment.current_phase_index;
+  const weekInPhase = overrideWeekInPhase ?? enrollment.current_week_in_phase;
+  const dayIdx = overrideDayIndex ?? enrollment.current_day_index;
 
   useEffect(() => {
     let cancelled = false;
@@ -84,8 +91,9 @@ export function PhasedTodayScreen({
         .where("phase_id")
         .equals(currentPhase.id)
         .toArray();
-      const daysPerWeek = new Set(phaseWorkouts.map((w) => w.day_index)).size || 3;
-      const currentDayIdx = dayIdx % daysPerWeek;
+      const computedDays = new Set(phaseWorkouts.map((w) => w.day_index)).size || 3;
+      setDaysPerWeek(computedDays);
+      const currentDayIdx = dayIdx % computedDays;
 
       // Find the workout matching phase + week + day
       const workouts = await db.phaseWorkouts
@@ -212,7 +220,7 @@ export function PhasedTodayScreen({
           Phase {phaseIdx + 1}: {phase?.name ?? "Unknown"}
         </p>
         <p className="text-xs text-muted-foreground">
-          Week {weekNum} &mdash; Day {(dayIdx % 3) + 1}
+          Week {weekNum} &mdash; Day {(dayIdx % daysPerWeek) + 1}
         </p>
       </div>
 

@@ -55,7 +55,6 @@ async def test_get_exercise_with_substitutions(auth_seeded_client: AsyncClient):
     assert data["name"] == "Lying Leg Curl"
     assert len(data["substitutions"]) == 2
 
-    sub_names = []
     for sub in data["substitutions"]:
         assert "substitute_exercise_id" in sub
         assert "priority" in sub

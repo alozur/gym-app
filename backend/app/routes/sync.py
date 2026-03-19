@@ -10,7 +10,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.dependencies import get_current_user, get_db
-from app.models import ExerciseProgress, Program, User, UserProgram, WorkoutSession, WorkoutSet
+from app.models import (
+    ExerciseProgress,
+    Program,
+    User,
+    UserProgram,
+    WorkoutSession,
+    WorkoutSet,
+)
 from app.schemas import SyncRequest, SyncResponse
 
 router = APIRouter(prefix="/api/sync", tags=["sync"])
@@ -41,9 +48,7 @@ async def sync_data(
     for session_data in body.sessions:
         try:
             result = await db.execute(
-                select(WorkoutSession).where(
-                    WorkoutSession.id == session_data.id
-                )
+                select(WorkoutSession).where(WorkoutSession.id == session_data.id)
             )
             existing = result.scalar_one_or_none()
             if existing:
@@ -153,7 +158,11 @@ async def sync_data(
                 )
             )
             enrollment = up_result.scalar_one_or_none()
-            if enrollment and enrollment.program.program_type == "rotating" and enrollment.program.routines:
+            if (
+                enrollment
+                and enrollment.program.program_type == "rotating"
+                and enrollment.program.routines
+            ):
                 next_index = enrollment.current_routine_index + 1
                 if next_index >= len(enrollment.program.routines):
                     next_index = 0

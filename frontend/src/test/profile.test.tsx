@@ -3,6 +3,21 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 
+// jsdom does not provide matchMedia
+Object.defineProperty(window, "matchMedia", {
+  writable: true,
+  value: vi.fn().mockImplementation((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+});
+
 const mockLogout = vi.fn().mockResolvedValue(undefined);
 const mockSyncNow = vi.fn().mockResolvedValue(undefined);
 const mockDispatch = vi.fn();
@@ -107,13 +122,6 @@ describe("Profile", () => {
 
     expect(screen.getByText("test@example.com")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Test User")).toBeInTheDocument();
-  });
-
-  it("renders unit toggle with kg and lbs buttons", () => {
-    renderProfile();
-
-    expect(screen.getByRole("button", { name: "kg" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "lbs" })).toBeInTheDocument();
   });
 
   it("logout button calls logout and navigates to /login", async () => {

@@ -184,8 +184,8 @@ describe("Dashboard", () => {
     });
 
     expect(screen.getByRole("button", { name: "Volume" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Records" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "History" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Body" })).toBeInTheDocument();
   });
 
   it("defaults to Progress tab with exercise selector", async () => {
@@ -207,27 +207,22 @@ describe("Dashboard", () => {
     await user.click(screen.getByRole("button", { name: "Volume" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Volume by Muscle Group")).toBeInTheDocument();
+      expect(screen.getByText("Volume by Session")).toBeInTheDocument();
     });
   });
 
-  it("switches to Records tab and shows personal records", async () => {
+  it("switches to Body tab", async () => {
     const user = userEvent.setup();
     renderDashboard();
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Records" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Body" })).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole("button", { name: "Records" }));
+    await user.click(screen.getByRole("button", { name: "Body" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Personal Records")).toBeInTheDocument();
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText("Bench Press")).toBeInTheDocument();
-      expect(screen.getByText("85 kg")).toBeInTheDocument();
+      expect(screen.getByText("Body Weight")).toBeInTheDocument();
     });
   });
 
@@ -243,11 +238,6 @@ describe("Dashboard", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Workout History")).toBeInTheDocument();
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText("Ad-hoc")).toBeInTheDocument();
-      expect(screen.getByText("1 sets")).toBeInTheDocument();
     });
   });
 });

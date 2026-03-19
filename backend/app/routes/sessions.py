@@ -13,7 +13,6 @@ from app.dependencies import get_current_user, get_db
 from app.models import (
     ExerciseProgress,
     Program,
-    ProgramRoutine,
     User,
     UserProgram,
     WorkoutSession,
@@ -35,15 +34,17 @@ router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
 @router.get("", response_model=list[SessionResponse])
 async def list_sessions(
-    year_week: Optional[str] = Query(None, description="Filter by year-week, e.g. 2025-27"),
-    week_type: Optional[str] = Query(None, description="Filter by week type: normal or deload"),
+    year_week: Optional[str] = Query(
+        None, description="Filter by year-week, e.g. 2025-27"
+    ),
+    week_type: Optional[str] = Query(
+        None, description="Filter by week type: normal or deload"
+    ),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[WorkoutSession]:
     """List the current user's workout sessions with optional filters."""
-    query = select(WorkoutSession).where(
-        WorkoutSession.user_id == current_user.id
-    )
+    query = select(WorkoutSession).where(WorkoutSession.user_id == current_user.id)
     if year_week is not None:
         query = query.where(WorkoutSession.year_week == year_week)
     if week_type is not None:
@@ -54,9 +55,7 @@ async def list_sessions(
     return list(result.scalars().all())
 
 
-@router.post(
-    "", response_model=SessionResponse, status_code=status.HTTP_201_CREATED
-)
+@router.post("", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
 async def create_session(
     body: SessionCreate,
     db: AsyncSession = Depends(get_db),
@@ -93,9 +92,7 @@ async def get_session(
             WorkoutSession.id == session_id,
             WorkoutSession.user_id == current_user.id,
         )
-        .options(
-            selectinload(WorkoutSession.sets).selectinload(WorkoutSet.exercise)
-        )
+        .options(selectinload(WorkoutSession.sets).selectinload(WorkoutSet.exercise))
     )
     session = result.scalar_one_or_none()
     if not session:
@@ -140,7 +137,11 @@ async def update_session(
                 )
             )
             enrollment = up_result.scalar_one_or_none()
-            if enrollment and enrollment.program.program_type == "rotating" and enrollment.program.routines:
+            if (
+                enrollment
+                and enrollment.program.program_type == "rotating"
+                and enrollment.program.routines
+            ):
                 enrollment.current_routine_index += 1
                 if enrollment.current_routine_index >= len(enrollment.program.routines):
                     enrollment.current_routine_index = 0

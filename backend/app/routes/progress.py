@@ -1,6 +1,6 @@
 """Exercise progress tracking routes."""
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,9 +25,7 @@ async def list_all_progress(
     return list(result.scalars().all())
 
 
-@router.get(
-    "/exercise/{exercise_id}", response_model=list[ProgressResponse]
-)
+@router.get("/exercise/{exercise_id}", response_model=list[ProgressResponse])
 async def get_exercise_progress(
     exercise_id: str,
     db: AsyncSession = Depends(get_db),
