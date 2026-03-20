@@ -1004,14 +1004,32 @@ export function ActiveWorkout({
             }
           }
         } else if (program) {
-          // Rotating advancement
-          const routineCount = await db.programRoutines
+          // Rotating advancement — determine which routine was actually completed
+          const routines = await db.programRoutines
             .where("program_id")
             .equals(program.id)
-            .count();
+            .toArray();
+          routines.sort((a, b) => a.order - b.order);
+          const routineCount = routines.length;
 
-          let newIndex = enrollment.current_routine_index + 1;
+          // Find the routine index that was just completed by matching template_id
+          const completedIdx = session.template_id
+            ? routines.findIndex((r) => r.template_id === session.template_id)
+            : -1;
+
+          let newIndex: number;
           let newWeeksCompleted = enrollment.weeks_completed;
+
+          if (
+            completedIdx >= 0 &&
+            completedIdx >= enrollment.current_routine_index
+          ) {
+            // User completed a routine at or ahead of current — advance past it
+            newIndex = completedIdx + 1;
+          } else {
+            // User redid an earlier routine or couldn't determine — just advance by 1
+            newIndex = enrollment.current_routine_index + 1;
+          }
 
           if (newIndex >= routineCount) {
             newIndex = 0;

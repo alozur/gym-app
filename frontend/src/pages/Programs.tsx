@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, SkipForward } from "lucide-react";
 import {
   db,
   type DbProgram,
@@ -33,6 +33,7 @@ interface WorkoutCard {
   name: string;
   dayIndex: number;
   isCompleted: boolean;
+  isSkipped: boolean;
   phaseWorkoutId?: string;
   templateId?: string;
   routineIndex?: number;
@@ -111,6 +112,7 @@ async function buildPhasedWeeks(
           name: w.name,
           dayIndex: w.day_index,
           isCompleted: completedIds.has(w.id),
+          isSkipped: false,
           phaseWorkoutId: w.id,
         })),
       });
@@ -148,6 +150,18 @@ async function buildRotatingWeeks(
     .toArray();
   const templateMap = new Map(templates.map((t) => [t.id, t]));
 
+  // Load completed sessions for this enrollment to distinguish done vs skipped
+  const completedSessions = await db.workoutSessions
+    .where("user_program_id")
+    .equals(enrollment.id)
+    .and((s) => s.finished_at !== null)
+    .toArray();
+  const completedTemplateIds = new Set(
+    completedSessions
+      .map((s) => s.template_id)
+      .filter((id): id is string => id !== null),
+  );
+
   const currentWeekInCycle = enrollment.weeks_completed % numWeeks;
 
   const pages: WeekPage[] = [];
@@ -160,16 +174,25 @@ async function buildRotatingWeeks(
       label: isDeload ? "DELOAD" : `Week ${w + 1} of ${numWeeks}`,
       workouts: routines.map((r, idx) => {
         let isCompleted = false;
+        let isSkipped = false;
         if (w < currentWeekInCycle) {
           isCompleted = true;
         } else if (w === currentWeekInCycle) {
-          isCompleted = idx < enrollment.current_routine_index;
+          if (idx < enrollment.current_routine_index) {
+            // Check if there's an actual session for this routine
+            if (completedTemplateIds.has(r.template_id)) {
+              isCompleted = true;
+            } else {
+              isSkipped = true;
+            }
+          }
         }
         return {
           id: `${r.id}-w${w}`,
           name: templateMap.get(r.template_id)?.name ?? "Unknown",
           dayIndex: idx,
           isCompleted,
+          isSkipped,
           templateId: r.template_id,
           routineIndex: idx,
           weekType: wType,
@@ -259,8 +282,30 @@ export default function Programs() {
         setWeekPages(weeks);
         setCurrentWeekIndex(defaultIndex);
         const dw = weeks[defaultIndex];
-        const next = dw?.workouts.find((w) => !w.isCompleted);
-        setSelectedWorkoutId(next?.id ?? dw?.workouts[0]?.id ?? null);
+        const next = dw?.workouts.find((w) => !w.isCompleted && !w.isSkipped);
+        const selectedId = next?.id ?? dw?.workouts[0]?.id ?? null;
+        setSelectedWorkoutId(selectedId);
+        // Persist default selection so Workout tab can read it
+        if (selectedId && dw) {
+          const selectedCard = dw.workouts.find((w) => w.id === selectedId);
+          if (selectedCard && prog) {
+            const override =
+              prog.program_type === "phased"
+                ? {
+                    overridePhaseIndex: dw.phaseIndex,
+                    overrideWeekInPhase: dw.weekInPhase,
+                    overrideDayIndex: selectedCard.dayIndex,
+                  }
+                : {
+                    overrideRoutineIndex: selectedCard.routineIndex,
+                    overrideWeekType: selectedCard.weekType,
+                  };
+            localStorage.setItem(
+              "workout-selection-override",
+              JSON.stringify(override),
+            );
+          }
+        }
       }
 
       async function refreshCounts(programs: DbProgram[]) {
@@ -600,37 +645,44 @@ export default function Programs() {
     await loadData({ cancelled: false });
   }
 
-  function handleStartWorkout() {
-    if (!selectedWorkoutId || !activeProgram) return;
-
-    let selectedCard: WorkoutCard | undefined;
-    let weekPage: WeekPage | undefined;
-
-    for (const page of weekPages) {
-      const card = page.workouts.find((w) => w.id === selectedWorkoutId);
-      if (card) {
-        selectedCard = card;
-        weekPage = page;
-        break;
-      }
+  // Persist the selected workout override to localStorage so Workout tab reads it
+  function saveWorkoutOverride(
+    card: WorkoutCard | undefined,
+    week: WeekPage | undefined,
+  ) {
+    if (!card || !week || !activeProgram) {
+      localStorage.removeItem("workout-selection-override");
+      return;
     }
-    if (!selectedCard || !weekPage) return;
+    const override =
+      activeProgram.program_type === "phased"
+        ? {
+            overridePhaseIndex: week.phaseIndex,
+            overrideWeekInPhase: week.weekInPhase,
+            overrideDayIndex: card.dayIndex,
+          }
+        : {
+            overrideRoutineIndex: card.routineIndex,
+            overrideWeekType: card.weekType,
+          };
+    localStorage.setItem(
+      "workout-selection-override",
+      JSON.stringify(override),
+    );
+  }
 
-    if (activeProgram.program_type === "phased") {
-      navigate("/workout", {
-        state: {
-          overridePhaseIndex: weekPage.phaseIndex,
-          overrideWeekInPhase: weekPage.weekInPhase,
-          overrideDayIndex: selectedCard.dayIndex,
-        },
-      });
-    } else {
-      navigate("/workout", {
-        state: {
-          overrideRoutineIndex: selectedCard.routineIndex,
-          overrideWeekType: selectedCard.weekType,
-        },
-      });
+  function selectWorkout(workoutId: string | null) {
+    setSelectedWorkoutId(workoutId);
+    if (!workoutId) {
+      localStorage.removeItem("workout-selection-override");
+      return;
+    }
+    for (const page of weekPages) {
+      const card = page.workouts.find((w) => w.id === workoutId);
+      if (card) {
+        saveWorkoutOverride(card, page);
+        return;
+      }
     }
   }
 
@@ -639,8 +691,13 @@ export default function Programs() {
     if (index < 0 || index >= weekPages.length) return;
     setCurrentWeekIndex(index);
     const week = weekPages[index];
-    const next = week?.workouts.find((w) => !w.isCompleted);
-    setSelectedWorkoutId(next?.id ?? week?.workouts[0]?.id ?? null);
+    const next = week?.workouts.find((w) => !w.isCompleted && !w.isSkipped);
+    const id = next?.id ?? week?.workouts[0]?.id ?? null;
+    setSelectedWorkoutId(id);
+    if (id) {
+      const card = week?.workouts.find((w) => w.id === id);
+      saveWorkoutOverride(card, week);
+    }
   }
 
   // Touch swipe for week navigation
@@ -799,9 +856,9 @@ export default function Programs() {
                       <button
                         key={workout.id}
                         type="button"
-                        onClick={() => setSelectedWorkoutId(workout.id)}
+                        onClick={() => selectWorkout(workout.id)}
                         className={`rounded-xl border-2 p-4 text-left transition-all ${
-                          workout.isCompleted
+                          workout.isCompleted || workout.isSkipped
                             ? "border-border bg-muted/50 opacity-60"
                             : isSelected
                               ? "border-primary bg-primary/5"
@@ -810,7 +867,9 @@ export default function Programs() {
                       >
                         <p
                           className={`font-medium text-sm ${
-                            workout.isCompleted ? "text-muted-foreground" : ""
+                            workout.isCompleted || workout.isSkipped
+                              ? "text-muted-foreground"
+                              : ""
                           }`}
                         >
                           {workout.name}
@@ -823,6 +882,14 @@ export default function Programs() {
                             <Check className="h-3.5 w-3.5 text-green-500" />
                             <span className="text-xs text-green-600 dark:text-green-400">
                               Done
+                            </span>
+                          </div>
+                        )}
+                        {workout.isSkipped && (
+                          <div className="flex items-center gap-1 mt-2">
+                            <SkipForward className="h-3.5 w-3.5 text-amber-500" />
+                            <span className="text-xs text-amber-600 dark:text-amber-400">
+                              Skipped
                             </span>
                           </div>
                         )}
@@ -841,15 +908,6 @@ export default function Programs() {
                 </p>
               )}
             </div>
-
-            {/* Start Workout */}
-            <Button
-              className="min-h-[48px] w-full text-base font-semibold"
-              onClick={handleStartWorkout}
-              disabled={!selectedWorkoutId}
-            >
-              Go to Workout
-            </Button>
           </div>
         )}
 
