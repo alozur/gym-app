@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, cleanup } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
 
@@ -101,6 +101,11 @@ function renderProgramBuilder() {
     </MemoryRouter>,
   );
 }
+
+afterEach(async () => {
+  cleanup();
+  await new Promise((r) => setTimeout(r, 50));
+});
 
 beforeEach(async () => {
   vi.clearAllMocks();

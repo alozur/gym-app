@@ -186,8 +186,9 @@ function renderPrograms() {
   );
 }
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
+  await new Promise((r) => setTimeout(r, 50));
 });
 
 beforeEach(async () => {

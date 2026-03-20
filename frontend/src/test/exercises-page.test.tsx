@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 
@@ -104,6 +104,11 @@ const sampleSubstitutions: DbExerciseSubstitution[] = [
     sync_status: "synced",
   },
 ];
+
+afterEach(async () => {
+  cleanup();
+  await new Promise((r) => setTimeout(r, 50));
+});
 
 beforeEach(async () => {
   vi.clearAllMocks();

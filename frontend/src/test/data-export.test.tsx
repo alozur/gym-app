@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("@/api/client", () => ({
@@ -23,6 +23,11 @@ vi.mock("@/db/index", async () => {
 
 import { db } from "@/db/index";
 import DataExport from "@/components/DataExport";
+
+afterEach(async () => {
+  cleanup();
+  await new Promise((r) => setTimeout(r, 50));
+});
 
 beforeEach(async () => {
   await db.delete();
