@@ -132,7 +132,9 @@ describe("Exercises page", () => {
     expect(screen.getByText("Squat")).toBeInTheDocument();
     expect(screen.getByText("Overhead Press")).toBeInTheDocument();
     // "Incline Dumbbell Press" appears both as exercise card and substitution pill
-    expect(screen.getAllByText("Incline Dumbbell Press").length).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getAllByText("Incline Dumbbell Press").length,
+    ).toBeGreaterThanOrEqual(1);
   });
 
   it("groups exercises by muscle group", async () => {

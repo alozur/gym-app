@@ -238,226 +238,232 @@ export default function Programs() {
   // Data loading (helpers inlined to avoid stale-closure risks)
   // -----------------------------------------------------------------------
 
-  const loadData = useCallback(async (signal: { cancelled: boolean }) => {
-    setIsLoading(true);
+  const loadData = useCallback(
+    async (signal: { cancelled: boolean }) => {
+      setIsLoading(true);
 
-    async function applyActive(
-      prog: DbProgram | null,
-      enr: DbUserProgram | null,
-    ) {
-      if (signal.cancelled) return;
-      setActiveProgram(prog);
-      setActiveEnrollment(enr);
-      if (!prog || !enr) {
-        setWeekPages([]);
-        setSelectedWorkoutId(null);
-        return;
-      }
-      const { weeks, defaultIndex } = await buildWeekPages(prog, enr);
-      if (signal.cancelled) return;
-      setWeekPages(weeks);
-      setCurrentWeekIndex(defaultIndex);
-      const dw = weeks[defaultIndex];
-      const next = dw?.workouts.find((w) => !w.isCompleted);
-      setSelectedWorkoutId(next?.id ?? dw?.workouts[0]?.id ?? null);
-    }
-
-    async function refreshCounts(programs: DbProgram[]) {
-      const c: Record<string, number> = {};
-      const p: Record<string, number> = {};
-      for (const prog of programs) {
-        if (prog.program_type === "phased") {
-          p[prog.id] = await db.programPhases
-            .where("program_id")
-            .equals(prog.id)
-            .count();
-        } else {
-          c[prog.id] = await db.programRoutines
-            .where("program_id")
-            .equals(prog.id)
-            .count();
-        }
-      }
-      if (signal.cancelled) return;
-      setRoutineCounts(c);
-      setPhaseCounts(p);
-    }
-
-    try {
-      // --- Local data ---
-      const localPrograms = await db.programs.toArray();
-      const localEnrollments = await db.userPrograms
-        .where("user_id")
-        .equals(userId)
-        .toArray();
-      if (signal.cancelled) return;
-
-      const enrollmentMap = new Map(
-        localEnrollments.map((e) => [e.program_id, e]),
-      );
-      setAllPrograms(
-        localPrograms.map((p) => ({
-          program: p,
-          enrollment: enrollmentMap.get(p.id) ?? null,
-        })),
-      );
-      await refreshCounts(localPrograms);
-
-      const activeEnr = localEnrollments.find((e) => e.is_active);
-      const activeProg = activeEnr
-        ? localPrograms.find((p) => p.id === activeEnr.program_id) ?? null
-        : null;
-      await applyActive(activeProg, activeEnr ?? null);
-    } catch {
-      /* Dexie query failed — leave previous state */
-    }
-
-    // --- API sync ---
-    if (authState.isAuthenticated && navigator.onLine) {
-      try {
-        const [remote, remoteEnrollments] = await Promise.all([
-          api.get<ProgramResponse[]>("/programs"),
-          api.get<UserProgramResponse[]>("/programs/enrollments"),
-        ]);
+      async function applyActive(
+        prog: DbProgram | null,
+        enr: DbUserProgram | null,
+      ) {
         if (signal.cancelled) return;
+        setActiveProgram(prog);
+        setActiveEnrollment(enr);
+        if (!prog || !enr) {
+          setWeekPages([]);
+          setSelectedWorkoutId(null);
+          return;
+        }
+        const { weeks, defaultIndex } = await buildWeekPages(prog, enr);
+        if (signal.cancelled) return;
+        setWeekPages(weeks);
+        setCurrentWeekIndex(defaultIndex);
+        const dw = weeks[defaultIndex];
+        const next = dw?.workouts.find((w) => !w.isCompleted);
+        setSelectedWorkoutId(next?.id ?? dw?.workouts[0]?.id ?? null);
+      }
 
-        await db.programs.bulkPut(
-          remote.map((p) => ({
-            id: p.id,
-            user_id: p.user_id ?? null,
-            name: p.name,
-            program_type: (p.program_type ?? "rotating") as
-              | "rotating"
-              | "phased",
-            deload_every_n_weeks: p.deload_every_n_weeks,
-            created_at: p.created_at,
-            sync_status: "synced" as const,
-          })),
-        );
-        await db.userPrograms.bulkPut(
-          remoteEnrollments.map((e) => ({
-            id: e.id,
-            user_id: e.user_id,
-            program_id: e.program_id,
-            is_active: e.is_active,
-            started_at: e.started_at,
-            current_routine_index: e.current_routine_index,
-            current_phase_index: e.current_phase_index ?? 0,
-            current_week_in_phase: e.current_week_in_phase ?? 0,
-            current_day_index: e.current_day_index ?? 0,
-            weeks_completed: e.weeks_completed,
-            last_workout_at: e.last_workout_at,
-            created_at: e.created_at,
-            sync_status: "synced" as const,
-          })),
-        );
-
-        // Hydrate phases
-        for (const p of remote) {
-          if (signal.cancelled) return;
-          if ((p.program_type ?? "rotating") !== "phased") continue;
-          try {
-            const phases = await api.get<ProgramPhaseDetailResponse[]>(
-              `/programs/${p.id}/phases`,
-            );
-            await db.programPhases.bulkPut(
-              phases.map((ph) => ({
-                id: ph.id,
-                program_id: p.id,
-                name: ph.name,
-                description: ph.description,
-                order: ph.order,
-                duration_weeks: ph.duration_weeks,
-                sync_status: "synced" as const,
-              })),
-            );
-            const wrs = phases.flatMap((ph) =>
-              ph.workouts.map((w) => ({
-                id: w.id,
-                phase_id: ph.id,
-                name: w.name,
-                day_index: w.day_index,
-                week_number: w.week_number,
-                sync_status: "synced" as const,
-              })),
-            );
-            if (wrs.length) await db.phaseWorkouts.bulkPut(wrs);
-            const srs = phases.flatMap((ph) =>
-              ph.workouts.flatMap((w) =>
-                w.sections.map((s) => ({
-                  id: s.id,
-                  workout_id: w.id,
-                  name: s.name,
-                  order: s.order,
-                  notes: s.notes,
-                  sync_status: "synced" as const,
-                })),
-              ),
-            );
-            if (srs.length) await db.phaseWorkoutSections.bulkPut(srs);
-            const ers = phases.flatMap((ph) =>
-              ph.workouts.flatMap((w) =>
-                w.sections.flatMap((s) =>
-                  s.exercises.map((ex) => ({
-                    id: ex.id,
-                    section_id: s.id,
-                    exercise_id: ex.exercise_id,
-                    order: ex.order,
-                    working_sets: ex.working_sets,
-                    reps_display: ex.reps_display,
-                    rest_period: ex.rest_period,
-                    intensity_technique: ex.intensity_technique,
-                    warmup_sets: ex.warmup_sets,
-                    notes: ex.notes,
-                    substitute1_exercise_id: ex.substitute1_exercise_id,
-                    substitute2_exercise_id: ex.substitute2_exercise_id,
-                    sync_status: "synced" as const,
-                  })),
-                ),
-              ),
-            );
-            if (ers.length) await db.phaseWorkoutExercises.bulkPut(ers);
-          } catch {
-            /* phase hydration failed */
+      async function refreshCounts(programs: DbProgram[]) {
+        const c: Record<string, number> = {};
+        const p: Record<string, number> = {};
+        for (const prog of programs) {
+          if (prog.program_type === "phased") {
+            p[prog.id] = await db.programPhases
+              .where("program_id")
+              .equals(prog.id)
+              .count();
+          } else {
+            c[prog.id] = await db.programRoutines
+              .where("program_id")
+              .equals(prog.id)
+              .count();
           }
         }
-
         if (signal.cancelled) return;
+        setRoutineCounts(c);
+        setPhaseCounts(p);
+      }
 
-        // Reload from Dexie after sync
-        const updatedPrograms = await db.programs.toArray();
-        const updatedEnrollments = await db.userPrograms
+      try {
+        // --- Local data ---
+        const localPrograms = await db.programs.toArray();
+        const localEnrollments = await db.userPrograms
           .where("user_id")
           .equals(userId)
           .toArray();
-        const updatedMap = new Map(
-          updatedEnrollments.map((e) => [e.program_id, e]),
+        if (signal.cancelled) return;
+
+        const enrollmentMap = new Map(
+          localEnrollments.map((e) => [e.program_id, e]),
         );
         setAllPrograms(
-          updatedPrograms.map((p) => ({
+          localPrograms.map((p) => ({
             program: p,
-            enrollment: updatedMap.get(p.id) ?? null,
+            enrollment: enrollmentMap.get(p.id) ?? null,
           })),
         );
-        await refreshCounts(updatedPrograms);
+        await refreshCounts(localPrograms);
 
-        const upActive = updatedEnrollments.find((e) => e.is_active);
-        const upProg = upActive
-          ? updatedPrograms.find((p) => p.id === upActive.program_id) ?? null
+        const activeEnr = localEnrollments.find((e) => e.is_active);
+        const activeProg = activeEnr
+          ? (localPrograms.find((p) => p.id === activeEnr.program_id) ?? null)
           : null;
-        await applyActive(upProg, upActive ?? null);
+        await applyActive(activeProg, activeEnr ?? null);
       } catch {
-        /* use cached */
+        /* Dexie query failed — leave previous state */
       }
-    }
 
-    if (!signal.cancelled) setIsLoading(false);
-  }, [authState.isAuthenticated, userId]);
+      // --- API sync ---
+      if (authState.isAuthenticated && navigator.onLine) {
+        try {
+          const [remote, remoteEnrollments] = await Promise.all([
+            api.get<ProgramResponse[]>("/programs"),
+            api.get<UserProgramResponse[]>("/programs/enrollments"),
+          ]);
+          if (signal.cancelled) return;
+
+          await db.programs.bulkPut(
+            remote.map((p) => ({
+              id: p.id,
+              user_id: p.user_id ?? null,
+              name: p.name,
+              program_type: (p.program_type ?? "rotating") as
+                | "rotating"
+                | "phased",
+              deload_every_n_weeks: p.deload_every_n_weeks,
+              created_at: p.created_at,
+              sync_status: "synced" as const,
+            })),
+          );
+          await db.userPrograms.bulkPut(
+            remoteEnrollments.map((e) => ({
+              id: e.id,
+              user_id: e.user_id,
+              program_id: e.program_id,
+              is_active: e.is_active,
+              started_at: e.started_at,
+              current_routine_index: e.current_routine_index,
+              current_phase_index: e.current_phase_index ?? 0,
+              current_week_in_phase: e.current_week_in_phase ?? 0,
+              current_day_index: e.current_day_index ?? 0,
+              weeks_completed: e.weeks_completed,
+              last_workout_at: e.last_workout_at,
+              created_at: e.created_at,
+              sync_status: "synced" as const,
+            })),
+          );
+
+          // Hydrate phases
+          for (const p of remote) {
+            if (signal.cancelled) return;
+            if ((p.program_type ?? "rotating") !== "phased") continue;
+            try {
+              const phases = await api.get<ProgramPhaseDetailResponse[]>(
+                `/programs/${p.id}/phases`,
+              );
+              await db.programPhases.bulkPut(
+                phases.map((ph) => ({
+                  id: ph.id,
+                  program_id: p.id,
+                  name: ph.name,
+                  description: ph.description,
+                  order: ph.order,
+                  duration_weeks: ph.duration_weeks,
+                  sync_status: "synced" as const,
+                })),
+              );
+              const wrs = phases.flatMap((ph) =>
+                ph.workouts.map((w) => ({
+                  id: w.id,
+                  phase_id: ph.id,
+                  name: w.name,
+                  day_index: w.day_index,
+                  week_number: w.week_number,
+                  sync_status: "synced" as const,
+                })),
+              );
+              if (wrs.length) await db.phaseWorkouts.bulkPut(wrs);
+              const srs = phases.flatMap((ph) =>
+                ph.workouts.flatMap((w) =>
+                  w.sections.map((s) => ({
+                    id: s.id,
+                    workout_id: w.id,
+                    name: s.name,
+                    order: s.order,
+                    notes: s.notes,
+                    sync_status: "synced" as const,
+                  })),
+                ),
+              );
+              if (srs.length) await db.phaseWorkoutSections.bulkPut(srs);
+              const ers = phases.flatMap((ph) =>
+                ph.workouts.flatMap((w) =>
+                  w.sections.flatMap((s) =>
+                    s.exercises.map((ex) => ({
+                      id: ex.id,
+                      section_id: s.id,
+                      exercise_id: ex.exercise_id,
+                      order: ex.order,
+                      working_sets: ex.working_sets,
+                      reps_display: ex.reps_display,
+                      rest_period: ex.rest_period,
+                      intensity_technique: ex.intensity_technique,
+                      warmup_sets: ex.warmup_sets,
+                      notes: ex.notes,
+                      substitute1_exercise_id: ex.substitute1_exercise_id,
+                      substitute2_exercise_id: ex.substitute2_exercise_id,
+                      sync_status: "synced" as const,
+                    })),
+                  ),
+                ),
+              );
+              if (ers.length) await db.phaseWorkoutExercises.bulkPut(ers);
+            } catch {
+              /* phase hydration failed */
+            }
+          }
+
+          if (signal.cancelled) return;
+
+          // Reload from Dexie after sync
+          const updatedPrograms = await db.programs.toArray();
+          const updatedEnrollments = await db.userPrograms
+            .where("user_id")
+            .equals(userId)
+            .toArray();
+          const updatedMap = new Map(
+            updatedEnrollments.map((e) => [e.program_id, e]),
+          );
+          setAllPrograms(
+            updatedPrograms.map((p) => ({
+              program: p,
+              enrollment: updatedMap.get(p.id) ?? null,
+            })),
+          );
+          await refreshCounts(updatedPrograms);
+
+          const upActive = updatedEnrollments.find((e) => e.is_active);
+          const upProg = upActive
+            ? (updatedPrograms.find((p) => p.id === upActive.program_id) ??
+              null)
+            : null;
+          await applyActive(upProg, upActive ?? null);
+        } catch {
+          /* use cached */
+        }
+      }
+
+      if (!signal.cancelled) setIsLoading(false);
+    },
+    [authState.isAuthenticated, userId],
+  );
 
   useEffect(() => {
     const signal = { cancelled: false };
     void loadData(signal);
-    return () => { signal.cancelled = true; };
+    return () => {
+      signal.cancelled = true;
+    };
   }, [loadData]);
 
   // -----------------------------------------------------------------------
@@ -532,7 +538,7 @@ export default function Programs() {
     }
 
     setShowLibrary(false);
-    await loadData();
+    await loadData({ cancelled: false });
   }
 
   async function handleDelete() {
@@ -551,10 +557,7 @@ export default function Programs() {
         ).map((p) => p.id);
         if (phaseIds.length) {
           const workoutIds = (
-            await db.phaseWorkouts
-              .where("phase_id")
-              .anyOf(phaseIds)
-              .toArray()
+            await db.phaseWorkouts.where("phase_id").anyOf(phaseIds).toArray()
           ).map((w) => w.id);
           if (workoutIds.length) {
             const sectionIds = (
@@ -575,10 +578,7 @@ export default function Programs() {
           }
           await db.phaseWorkouts.where("phase_id").anyOf(phaseIds).delete();
         }
-        await db.programPhases
-          .where("program_id")
-          .equals(program.id)
-          .delete();
+        await db.programPhases.where("program_id").equals(program.id).delete();
       } else {
         await db.programRoutines
           .where("program_id")
@@ -597,7 +597,7 @@ export default function Programs() {
     }
 
     setDeleteTarget(null);
-    await loadData();
+    await loadData({ cancelled: false });
   }
 
   function handleStartWorkout() {
@@ -698,9 +698,7 @@ export default function Programs() {
             <p className="text-muted-foreground text-sm mb-6">
               Activate a program from the library or create a new one.
             </p>
-            <Button onClick={() => setShowLibrary(true)}>
-              Browse Library
-            </Button>
+            <Button onClick={() => setShowLibrary(true)}>Browse Library</Button>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
@@ -961,13 +959,8 @@ export default function Programs() {
               <Button variant="outline" onClick={() => setDeleteTarget(null)}>
                 Cancel
               </Button>
-              <Button
-                variant="destructive"
-                onClick={() => void handleDelete()}
-              >
-                {deleteTarget?.program.user_id === null
-                  ? "Unenroll"
-                  : "Delete"}
+              <Button variant="destructive" onClick={() => void handleDelete()}>
+                {deleteTarget?.program.user_id === null ? "Unenroll" : "Delete"}
               </Button>
             </DialogFooter>
           </DialogContent>

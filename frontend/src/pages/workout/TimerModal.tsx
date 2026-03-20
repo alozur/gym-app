@@ -13,7 +13,9 @@ function playTone(frequency: number, duration: number, volume = 0.3) {
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + duration);
     setTimeout(() => void ctx.close(), duration * 1000 + 500);
-  } catch { /* Audio not available */ }
+  } catch {
+    /* Audio not available */
+  }
 }
 
 function playCountdownTick() {
@@ -23,7 +25,9 @@ function playCountdownTick() {
 function vibrate(pattern: number | number[]) {
   try {
     navigator?.vibrate?.(pattern);
-  } catch { /* Vibration not available */ }
+  } catch {
+    /* Vibration not available */
+  }
 }
 
 function playGoSound() {
@@ -41,7 +45,9 @@ function playGoSound() {
       osc.stop(ctx.currentTime + offset + 0.12);
     });
     setTimeout(() => void ctx.close(), 1000);
-  } catch { /* Audio not available */ }
+  } catch {
+    /* Audio not available */
+  }
 }
 
 function playFinishSound() {
@@ -59,7 +65,9 @@ function playFinishSound() {
       osc.stop(ctx.currentTime + offset + 0.15);
     });
     setTimeout(() => void ctx.close(), 1000);
-  } catch { /* Audio not available */ }
+  } catch {
+    /* Audio not available */
+  }
 }
 
 type Phase = "countdown" | "active" | "overtime";
@@ -70,7 +78,11 @@ interface TimerModalProps {
   onClose: (actualSeconds: number | null) => void;
 }
 
-export function TimerModal({ targetSeconds, exerciseName, onClose }: TimerModalProps) {
+export function TimerModal({
+  targetSeconds,
+  exerciseName,
+  onClose,
+}: TimerModalProps) {
   const [phase, setPhase] = useState<Phase>("countdown");
   const [display, setDisplay] = useState(5);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -96,7 +108,9 @@ export function TimerModal({ targetSeconds, exerciseName, onClose }: TimerModalP
         if ("wakeLock" in navigator) {
           wakeLock = await navigator.wakeLock.request("screen");
         }
-      } catch { /* Wake Lock not available or denied */ }
+      } catch {
+        /* Wake Lock not available or denied */
+      }
     }
 
     void acquireWakeLock();
@@ -131,7 +145,10 @@ export function TimerModal({ targetSeconds, exerciseName, onClose }: TimerModalP
       const t = Date.now();
 
       if (phaseRef.current === "countdown") {
-        const left = Math.max(0, Math.ceil((countdownEndRef.current - t) / 1000));
+        const left = Math.max(
+          0,
+          Math.ceil((countdownEndRef.current - t) / 1000),
+        );
         setDisplay(left);
         if (left !== lastTickRef.current && left > 0) {
           lastTickRef.current = left;
@@ -145,7 +162,10 @@ export function TimerModal({ targetSeconds, exerciseName, onClose }: TimerModalP
           playGoSound();
         }
       } else if (phaseRef.current === "active") {
-        const remaining = Math.max(0, Math.ceil((activeEndRef.current - t) / 1000));
+        const remaining = Math.max(
+          0,
+          Math.ceil((activeEndRef.current - t) / 1000),
+        );
         setDisplay(remaining);
         if (t >= activeEndRef.current) {
           phaseRef.current = "overtime";
@@ -169,7 +189,10 @@ export function TimerModal({ targetSeconds, exerciseName, onClose }: TimerModalP
     if (p === "countdown") {
       onClose(null);
     } else if (p === "active") {
-      const remaining = Math.max(0, Math.ceil((activeEndRef.current - Date.now()) / 1000));
+      const remaining = Math.max(
+        0,
+        Math.ceil((activeEndRef.current - Date.now()) / 1000),
+      );
       const done = targetSeconds - remaining;
       onClose(done > 0 ? done : null);
     } else {
@@ -232,12 +255,23 @@ export function TimerModal({ targetSeconds, exerciseName, onClose }: TimerModalP
         aria-label="Stop timer"
       >
         {phase === "countdown" ? (
-          <svg className="h-8 w-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+          <svg
+            className="h-8 w-8 text-white"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          >
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         ) : (
-          <svg className="h-8 w-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+          <svg
+            className="h-8 w-8 text-white"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
             <rect x="6" y="6" width="12" height="12" rx="2" />
           </svg>
         )}

@@ -64,9 +64,7 @@ describe("Login page", () => {
     });
 
     expect(screen.getByLabelText("Password")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Login" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Login" })).toBeInTheDocument();
   });
 
   it("submitting the form calls the login API", async () => {

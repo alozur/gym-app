@@ -118,9 +118,7 @@ describe("ProgramBuilder", () => {
       expect(screen.getByLabelText("Program Name")).toBeInTheDocument();
     });
 
-    expect(
-      screen.getByLabelText("Deload Every N Weeks"),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Deload Every N Weeks")).toBeInTheDocument();
   });
 
   it("renders Add Routine button", async () => {

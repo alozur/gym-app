@@ -10,9 +10,20 @@ interface SetRowProps {
   onChange: (field: "weight" | "reps" | "rpe", value: string) => void;
 }
 
-export function SetRow({ entry, exerciseType, exerciseName, onChange }: SetRowProps) {
+export function SetRow({
+  entry,
+  exerciseType,
+  exerciseName,
+  onChange,
+}: SetRowProps) {
   if (exerciseType === "timed") {
-    return <TimedSetRow entry={entry} exerciseName={exerciseName ?? "Exercise"} onChange={onChange} />;
+    return (
+      <TimedSetRow
+        entry={entry}
+        exerciseName={exerciseName ?? "Exercise"}
+        onChange={onChange}
+      />
+    );
   }
 
   return (

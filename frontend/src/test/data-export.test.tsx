@@ -37,7 +37,9 @@ describe("DataExport", () => {
   it("renders Export Data button", () => {
     renderDataExport();
 
-    expect(screen.getByRole("button", { name: /export data/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /export data/i }),
+    ).toBeInTheDocument();
   });
 
   it("opens dialog with format options when button is clicked", async () => {
@@ -75,7 +77,9 @@ describe("DataExport", () => {
     await user.click(screen.getByRole("button", { name: /export data/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Download" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Download" }),
+      ).toBeInTheDocument();
     });
 
     // Cancel button also present

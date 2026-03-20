@@ -1,7 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
-import { db, SYNC_STATUS, type DbWorkoutSession, type DbProgram, type DbUserProgram } from "@/db/index";
+import {
+  db,
+  SYNC_STATUS,
+  type DbWorkoutSession,
+  type DbProgram,
+  type DbUserProgram,
+} from "@/db/index";
 import { useAuthContext } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { WorkoutSetup } from "./workout/WorkoutSetup";
@@ -39,7 +45,8 @@ export default function Workout() {
   const [session, setSession] = useState<DbWorkoutSession | null>(null);
   const [templateName, setTemplateName] = useState<string | null>(null);
   const [activeProgram, setActiveProgram] = useState<DbProgram | null>(null);
-  const [activeEnrollment, setActiveEnrollment] = useState<DbUserProgram | null>(null);
+  const [activeEnrollment, setActiveEnrollment] =
+    useState<DbUserProgram | null>(null);
   const [checkingActive, setCheckingActive] = useState(true);
   const [showAdHoc, setShowAdHoc] = useState(false);
 
@@ -65,7 +72,9 @@ export default function Workout() {
             const template = await db.workoutTemplates.get(active.template_id);
             setTemplateName(template?.name ?? null);
           } else if (active.phase_workout_id) {
-            const phaseWorkout = await db.phaseWorkouts.get(active.phase_workout_id);
+            const phaseWorkout = await db.phaseWorkouts.get(
+              active.phase_workout_id,
+            );
             setTemplateName(phaseWorkout?.name ?? null);
           }
           setCheckingActive(false);
@@ -157,7 +166,10 @@ export default function Workout() {
             <div className="h-8 w-40 rounded bg-muted animate-pulse" />
             <div className="h-10 w-full rounded-lg bg-muted animate-pulse" />
             {[1, 2, 3].map((n) => (
-              <div key={n} className="rounded-lg border border-border p-3 flex flex-col gap-2">
+              <div
+                key={n}
+                className="rounded-lg border border-border p-3 flex flex-col gap-2"
+              >
                 <div className="h-4 w-32 rounded bg-muted animate-pulse" />
                 <div className="h-3 w-48 rounded bg-muted animate-pulse" />
               </div>
@@ -207,7 +219,14 @@ export default function Workout() {
           overrideRoutineIndex={workoutOverrides?.overrideRoutineIndex}
           overrideWeekType={workoutOverrides?.overrideWeekType}
           onStartWorkout={(templateId, weekType, name, programId) =>
-            void handleStart(templateId, weekType, name, programId, undefined, activeEnrollment.id)
+            void handleStart(
+              templateId,
+              weekType,
+              name,
+              programId,
+              undefined,
+              activeEnrollment.id,
+            )
           }
           onAdHoc={() => setShowAdHoc(true)}
         />

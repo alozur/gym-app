@@ -177,7 +177,9 @@ describe("ExercisePicker", () => {
 
   it("excludes exercises by excludeIds", async () => {
     const onSelect = vi.fn();
-    render(<ExercisePicker onSelect={onSelect} excludeIds={["ex-1", "ex-2"]} />);
+    render(
+      <ExercisePicker onSelect={onSelect} excludeIds={["ex-1", "ex-2"]} />,
+    );
 
     await waitFor(() => {
       expect(screen.getByText("Overhead Press")).toBeInTheDocument();

@@ -81,7 +81,9 @@ vi.mock("@/context/AuthContext", () => ({
     },
     dispatch: mockDispatch,
   }),
-  AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  AuthProvider: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
 }));
 
 vi.mock("@/db/index", () => ({
@@ -168,6 +170,8 @@ describe("Profile", () => {
   it("renders Export Data button", () => {
     renderProfile();
 
-    expect(screen.getByRole("button", { name: "Export Data" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Export Data" }),
+    ).toBeInTheDocument();
   });
 });

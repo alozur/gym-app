@@ -200,9 +200,7 @@ describe("Programs", () => {
       expect(screen.getByText("No Active Program")).toBeInTheDocument();
     });
 
-    expect(
-      screen.getByRole("button", { name: "Create" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create" })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Browse Library" }),
     ).toBeInTheDocument();
@@ -258,9 +256,7 @@ describe("Programs", () => {
       ).toBeInTheDocument();
     });
 
-    expect(
-      screen.getByRole("button", { name: "Library" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Library" })).toBeInTheDocument();
   });
 
   // -------------------------------------------------------------------------
@@ -273,7 +269,9 @@ describe("Programs", () => {
 
     // Wait for initial load
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Library" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Library" }),
+      ).toBeInTheDocument();
     });
 
     await user.click(screen.getByRole("button", { name: "Library" }));
@@ -292,7 +290,9 @@ describe("Programs", () => {
 
     // Wait for initial load
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Library" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Library" }),
+      ).toBeInTheDocument();
     });
 
     await user.click(screen.getByRole("button", { name: "Library" }));
@@ -303,13 +303,19 @@ describe("Programs", () => {
 
     // Both program names should appear (Push Pull Legs also appears in the
     // active-program heading behind the dialog, so use getAllByText)
-    expect(screen.getAllByText("Push Pull Legs").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Push Pull Legs").length).toBeGreaterThanOrEqual(
+      1,
+    );
     expect(screen.getByText("Upper Lower")).toBeInTheDocument();
 
     // Should show Activate/Deactivate buttons and Edit/View and Delete buttons
     // prog-1 is active so it shows "Deactivate"; prog-2 is inactive so "Activate"
-    expect(screen.getByRole("button", { name: "Deactivate" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Activate" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Deactivate" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Activate" }),
+    ).toBeInTheDocument();
     // Both programs are user-owned and rotating, so buttons should read "Edit"
     expect(screen.getAllByRole("button", { name: "Edit" })).toHaveLength(2);
     // Delete buttons
@@ -432,7 +438,7 @@ describe("Programs", () => {
       .getAllByRole("button")
       .find(
         (btn) =>
-          !btn.disabled &&
+          !(btn as HTMLButtonElement).disabled &&
           btn.className.includes("p-2") &&
           btn.getAttribute("type") === "button" &&
           btn.querySelector("svg"),

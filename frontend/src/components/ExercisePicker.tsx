@@ -20,7 +20,10 @@ interface ExercisePickerProps {
   excludeIds?: string[];
 }
 
-export function ExercisePicker({ onSelect, excludeIds = [] }: ExercisePickerProps) {
+export function ExercisePicker({
+  onSelect,
+  excludeIds = [],
+}: ExercisePickerProps) {
   const [exercises, setExercises] = useState<DbExercise[]>([]);
   const [search, setSearch] = useState("");
   const [muscleFilter, setMuscleFilter] = useState<string>("All");
@@ -87,7 +90,8 @@ export function ExercisePicker({ onSelect, excludeIds = [] }: ExercisePickerProp
     const query = search.toLowerCase();
     return exercises.filter((e) => {
       if (excludeSet.has(e.id)) return false;
-      if (muscleFilter !== "All" && e.muscle_group !== muscleFilter) return false;
+      if (muscleFilter !== "All" && e.muscle_group !== muscleFilter)
+        return false;
       if (query && !e.name.toLowerCase().includes(query)) return false;
       return true;
     });

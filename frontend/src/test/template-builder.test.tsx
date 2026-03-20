@@ -176,9 +176,7 @@ describe("TemplateBuilder", () => {
     await user.click(screen.getByRole("button", { name: /save template/i }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText("Template name is required"),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Template name is required")).toBeInTheDocument();
     });
   });
 
@@ -195,9 +193,7 @@ describe("TemplateBuilder", () => {
     await user.click(screen.getByRole("button", { name: /save template/i }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText("Add at least one exercise"),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Add at least one exercise")).toBeInTheDocument();
     });
   });
 
@@ -238,11 +234,11 @@ describe("TemplateBuilder", () => {
 
     const templateExercises = await db.templateExercises.toArray();
     expect(templateExercises.length).toBe(2);
-    expect(
-      templateExercises.some((te) => te.week_type === "normal"),
-    ).toBe(true);
-    expect(
-      templateExercises.some((te) => te.week_type === "deload"),
-    ).toBe(true);
+    expect(templateExercises.some((te) => te.week_type === "normal")).toBe(
+      true,
+    );
+    expect(templateExercises.some((te) => te.week_type === "deload")).toBe(
+      true,
+    );
   });
 });

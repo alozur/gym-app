@@ -6,9 +6,9 @@ import PhasedProgramView from "./PhasedProgramView";
 
 export default function ProgramDetail() {
   const { id: programId } = useParams<{ id: string }>();
-  const [programType, setProgramType] = useState<
-    "rotating" | "phased" | null
-  >(null);
+  const [programType, setProgramType] = useState<"rotating" | "phased" | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

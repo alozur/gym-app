@@ -23,7 +23,8 @@ export default function InstallPrompt() {
     }
 
     window.addEventListener("beforeinstallprompt", handlePrompt);
-    return () => window.removeEventListener("beforeinstallprompt", handlePrompt);
+    return () =>
+      window.removeEventListener("beforeinstallprompt", handlePrompt);
   }, []);
 
   function dismiss() {

@@ -60,19 +60,21 @@ export default function ProgressChart({ exerciseId }: ProgressChartProps) {
       const bySession = new Map<string, typeof sets>();
       for (const s of sets) {
         let arr = bySession.get(s.session_id);
-        if (!arr) { arr = []; bySession.set(s.session_id, arr); }
+        if (!arr) {
+          arr = [];
+          bySession.set(s.session_id, arr);
+        }
         arr.push(s);
       }
 
       // Look up session dates
       const sessionIds = [...bySession.keys()];
-      const sessions = sessionIds.length > 0
-        ? await db.workoutSessions.where("id").anyOf(sessionIds).toArray()
-        : [];
+      const sessions =
+        sessionIds.length > 0
+          ? await db.workoutSessions.where("id").anyOf(sessionIds).toArray()
+          : [];
       const sessionDateMap = new Map(
-        sessions
-          .filter((s) => s.finished_at)
-          .map((s) => [s.id, s.started_at]),
+        sessions.filter((s) => s.finished_at).map((s) => [s.id, s.started_at]),
       );
 
       // Build chart points per session
@@ -104,7 +106,9 @@ export default function ProgressChart({ exerciseId }: ProgressChartProps) {
     }
 
     void load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [exerciseId]);
 
   const filteredData = useMemo(() => {
@@ -156,14 +160,24 @@ export default function ProgressChart({ exerciseId }: ProgressChartProps) {
               yAxisId="weight"
               tick={{ fontSize: 10 }}
               stroke="var(--chart-1)"
-              label={{ value: "Weight (kg)", angle: -90, position: "insideLeft", style: { fontSize: 10, fill: "var(--chart-1)" } }}
+              label={{
+                value: "Weight (kg)",
+                angle: -90,
+                position: "insideLeft",
+                style: { fontSize: 10, fill: "var(--chart-1)" },
+              }}
             />
             <YAxis
               yAxisId="volume"
               orientation="right"
               tick={{ fontSize: 10 }}
               stroke="var(--chart-2)"
-              label={{ value: "Volume (kg)", angle: 90, position: "insideRight", style: { fontSize: 10, fill: "var(--chart-2)" } }}
+              label={{
+                value: "Volume (kg)",
+                angle: 90,
+                position: "insideRight",
+                style: { fontSize: 10, fill: "var(--chart-2)" },
+              }}
             />
             <Tooltip
               contentStyle={{

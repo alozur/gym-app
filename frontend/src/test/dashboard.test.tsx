@@ -180,7 +180,9 @@ describe("Dashboard", () => {
     renderDashboard();
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Progress" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Progress" }),
+      ).toBeInTheDocument();
     });
 
     expect(screen.getByRole("button", { name: "Volume" })).toBeInTheDocument();
@@ -201,7 +203,9 @@ describe("Dashboard", () => {
     renderDashboard();
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Volume" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Volume" }),
+      ).toBeInTheDocument();
     });
 
     await user.click(screen.getByRole("button", { name: "Volume" }));
@@ -231,7 +235,9 @@ describe("Dashboard", () => {
     renderDashboard();
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "History" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "History" }),
+      ).toBeInTheDocument();
     });
 
     await user.click(screen.getByRole("button", { name: "History" }));

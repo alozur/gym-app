@@ -353,7 +353,8 @@ export class GymTrackerDB extends Dexie {
         programs: "id, user_id, is_active, sync_status",
         programRoutines: "id, program_id, template_id, sync_status",
         programPhases: "id, program_id, sync_status",
-        phaseWorkouts: "id, phase_id, [phase_id+day_index+week_number], sync_status",
+        phaseWorkouts:
+          "id, phase_id, [phase_id+day_index+week_number], sync_status",
         phaseWorkoutSections: "id, workout_id, sync_status",
         phaseWorkoutExercises: "id, section_id, exercise_id, sync_status",
       })
@@ -404,7 +405,8 @@ export class GymTrackerDB extends Dexie {
         programs: "id, user_id, sync_status",
         programRoutines: "id, program_id, template_id, sync_status",
         programPhases: "id, program_id, sync_status",
-        phaseWorkouts: "id, phase_id, [phase_id+day_index+week_number], sync_status",
+        phaseWorkouts:
+          "id, phase_id, [phase_id+day_index+week_number], sync_status",
         phaseWorkoutSections: "id, workout_id, sync_status",
         phaseWorkoutExercises: "id, section_id, exercise_id, sync_status",
         userPrograms: "id, user_id, program_id, is_active, sync_status",

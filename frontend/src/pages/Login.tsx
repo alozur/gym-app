@@ -60,9 +60,7 @@ export default function Login() {
                 autoComplete="current-password"
               />
             </div>
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
+            {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" disabled={isLoading} className="w-full">
               {isLoading ? "Logging in..." : "Login"}
             </Button>

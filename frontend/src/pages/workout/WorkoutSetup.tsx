@@ -21,7 +21,7 @@ interface WorkoutSetupProps {
   onStart: (
     templateId: string | null,
     weekType: WeekType,
-    templateName: string | null
+    templateName: string | null,
   ) => void;
 }
 
@@ -44,7 +44,7 @@ export function WorkoutSetup({ onStart }: WorkoutSetupProps) {
     onStart(
       isAdhoc ? null : selectedTemplateId,
       weekType,
-      template?.name ?? null
+      template?.name ?? null,
     );
   }
 

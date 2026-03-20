@@ -1,11 +1,6 @@
 import { useState, useEffect } from "react";
 import { db, type DbExercise } from "@/db/index";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -36,9 +31,13 @@ export default function Dashboard() {
       const exerciseIdsWithData = new Set(progress.map((p) => p.exercise_id));
       if (cancelled) return;
 
-      const allExercises = exerciseIdsWithData.size > 0
-        ? await db.exercises.where("id").anyOf([...exerciseIdsWithData]).toArray()
-        : [];
+      const allExercises =
+        exerciseIdsWithData.size > 0
+          ? await db.exercises
+              .where("id")
+              .anyOf([...exerciseIdsWithData])
+              .toArray()
+          : [];
       if (cancelled) return;
       allExercises.sort((a, b) => a.name.localeCompare(b.name));
       setExercises(allExercises);
@@ -80,7 +79,10 @@ export default function Dashboard() {
               <CardContent>
                 {exercises.length > 0 ? (
                   <>
-                    <Select value={selectedExerciseId} onValueChange={setSelectedExerciseId}>
+                    <Select
+                      value={selectedExerciseId}
+                      onValueChange={setSelectedExerciseId}
+                    >
                       <SelectTrigger className="mb-4 w-full">
                         <SelectValue placeholder="Select exercise" />
                       </SelectTrigger>
@@ -118,9 +120,7 @@ export default function Dashboard() {
         {activeTab === "Volume" && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">
-                Volume by Session
-              </CardTitle>
+              <CardTitle className="text-base">Volume by Session</CardTitle>
             </CardHeader>
             <CardContent>
               <VolumeChart />

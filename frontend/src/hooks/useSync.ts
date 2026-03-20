@@ -147,8 +147,7 @@ export function useSync(): UseSyncReturn {
       backoffRef.current = 1000;
       await refreshPendingCount();
     } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : "Sync failed";
+      const message = error instanceof Error ? error.message : "Sync failed";
       setLastSyncError(message);
 
       // Exponential backoff

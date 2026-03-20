@@ -56,8 +56,7 @@ export function useAuth(): UseAuthReturn {
         // Hydrate Dexie from API so the new user has fresh data
         void hydrateFromApi(user.id);
       } catch (err) {
-        const message =
-          err instanceof ApiError ? err.message : "Login failed";
+        const message = err instanceof ApiError ? err.message : "Login failed";
         setError(message);
         throw err;
       } finally {
