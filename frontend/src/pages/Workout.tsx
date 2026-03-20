@@ -31,10 +31,17 @@ export default function Workout() {
   const { state: authState } = useAuthContext();
   const userId = authState.user?.id ?? "";
 
-  // Capture overrides from Programs page navigation, then clear location state
-  const [workoutOverrides] = useState<WorkoutOverrides | null>(
-    () => (location.state as WorkoutOverrides) ?? null,
-  );
+  // Capture overrides from Programs page: location.state (legacy) or localStorage
+  const [workoutOverrides] = useState<WorkoutOverrides | null>(() => {
+    if (location.state) return location.state as WorkoutOverrides;
+    try {
+      const stored = localStorage.getItem("workout-selection-override");
+      if (stored) return JSON.parse(stored) as WorkoutOverrides;
+    } catch {
+      /* ignore */
+    }
+    return null;
+  });
   useEffect(() => {
     if (location.state) {
       navigate(location.pathname, { replace: true, state: null });

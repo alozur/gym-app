@@ -237,7 +237,7 @@ describe("Programs", () => {
     });
   });
 
-  it("shows Go to Workout button", async () => {
+  it("does not show Go to Workout button (selection syncs via localStorage)", async () => {
     await db.programs.bulkAdd(samplePrograms);
     await db.userPrograms.bulkAdd(sampleEnrollments);
     await db.programRoutines.bulkAdd(sampleRoutines);
@@ -246,10 +246,12 @@ describe("Programs", () => {
     renderPrograms();
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: /go to workout/i }),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Push Day")).toBeInTheDocument();
     });
+
+    expect(
+      screen.queryByRole("button", { name: /go to workout/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows Create and Library buttons", async () => {
@@ -502,6 +504,22 @@ describe("Programs", () => {
     await db.programRoutines.bulkAdd(sampleRoutines);
     await db.workoutTemplates.bulkAdd(sampleTemplates);
 
+    // Add a completed session for Push Day (tpl-1) so it shows "Done" not "Skipped"
+    await db.workoutSessions.add({
+      id: "sess-done-1",
+      user_id: "u1",
+      template_id: "tpl-1",
+      year_week: "2024-03",
+      week_type: "normal",
+      started_at: "2024-01-15T10:00:00Z",
+      finished_at: "2024-01-15T11:00:00Z",
+      notes: null,
+      program_id: "prog-1",
+      phase_workout_id: null,
+      user_program_id: "up-5",
+      sync_status: "synced",
+    });
+
     renderPrograms();
 
     // Wait for the workout grid to render
@@ -510,6 +528,60 @@ describe("Programs", () => {
     });
 
     // Push Day (index 0) should be marked as Done since current_routine_index=1
+    // and a completed session exists for its template
     expect(screen.getByText("Done")).toBeInTheDocument();
+  });
+
+  it("marks skipped workouts with Skipped indicator", async () => {
+    // current_routine_index=2 means routines 0 and 1 are past,
+    // but only routine 0 has a session → routine 1 is "Skipped"
+    const enrollmentWithSkipped: DbUserProgram[] = [
+      {
+        id: "up-6",
+        user_id: "u1",
+        program_id: "prog-1",
+        is_active: true,
+        started_at: "2024-01-01T00:00:00Z",
+        current_routine_index: 2,
+        current_phase_index: 0,
+        current_week_in_phase: 0,
+        current_day_index: 0,
+        weeks_completed: 2,
+        last_workout_at: null,
+        created_at: "2024-01-01T00:00:00Z",
+        sync_status: "synced",
+      },
+    ];
+
+    await db.programs.bulkAdd([samplePrograms[0]]);
+    await db.userPrograms.bulkAdd(enrollmentWithSkipped);
+    await db.programRoutines.bulkAdd(sampleRoutines);
+    await db.workoutTemplates.bulkAdd(sampleTemplates);
+
+    // Only add a session for Push Day (tpl-1), not Pull Day (tpl-2)
+    await db.workoutSessions.add({
+      id: "sess-done-2",
+      user_id: "u1",
+      template_id: "tpl-1",
+      year_week: "2024-03",
+      week_type: "normal",
+      started_at: "2024-01-15T10:00:00Z",
+      finished_at: "2024-01-15T11:00:00Z",
+      notes: null,
+      program_id: "prog-1",
+      phase_workout_id: null,
+      user_program_id: "up-6",
+      sync_status: "synced",
+    });
+
+    renderPrograms();
+
+    await waitFor(() => {
+      expect(screen.getByText("Push Day")).toBeInTheDocument();
+    });
+
+    // Push Day shows Done, Pull Day shows Skipped
+    expect(screen.getByText("Done")).toBeInTheDocument();
+    expect(screen.getByText("Skipped")).toBeInTheDocument();
   });
 });
