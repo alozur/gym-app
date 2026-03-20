@@ -28,11 +28,11 @@ jobs:
           APP_PORT=${APP_PORT}
           SUBNET=${SUBNET}
           GATEWAY=${GATEWAY}
-          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+          POSTGRES_USER=${{ vars.POSTGRES_USER }}
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+          POSTGRES_DB=${{ vars.POSTGRES_DB }}
           JWT_SECRET=${{ secrets.JWT_SECRET }}
-          CORS_ORIGINS=${{ secrets.CORS_ORIGINS }}
+          CORS_ORIGINS=${{ vars.CORS_ORIGINS }}
           EOF
 
       - name: Deploy with docker compose
