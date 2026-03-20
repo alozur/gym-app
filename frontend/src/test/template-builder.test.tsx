@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
@@ -116,6 +116,11 @@ function renderTemplateBuilder() {
   );
 }
 
+afterEach(async () => {
+  cleanup();
+  await new Promise((r) => setTimeout(r, 50));
+});
+
 beforeEach(async () => {
   vi.clearAllMocks();
   uuidCounter = 0;
@@ -176,9 +181,7 @@ describe("TemplateBuilder", () => {
     await user.click(screen.getByRole("button", { name: /save template/i }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText("Template name is required"),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Template name is required")).toBeInTheDocument();
     });
   });
 
@@ -195,9 +198,7 @@ describe("TemplateBuilder", () => {
     await user.click(screen.getByRole("button", { name: /save template/i }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText("Add at least one exercise"),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Add at least one exercise")).toBeInTheDocument();
     });
   });
 
@@ -238,11 +239,11 @@ describe("TemplateBuilder", () => {
 
     const templateExercises = await db.templateExercises.toArray();
     expect(templateExercises.length).toBe(2);
-    expect(
-      templateExercises.some((te) => te.week_type === "normal"),
-    ).toBe(true);
-    expect(
-      templateExercises.some((te) => te.week_type === "deload"),
-    ).toBe(true);
+    expect(templateExercises.some((te) => te.week_type === "normal")).toBe(
+      true,
+    );
+    expect(templateExercises.some((te) => te.week_type === "deload")).toBe(
+      true,
+    );
   });
 });

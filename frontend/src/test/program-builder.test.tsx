@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, cleanup } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
 
@@ -102,6 +102,11 @@ function renderProgramBuilder() {
   );
 }
 
+afterEach(async () => {
+  cleanup();
+  await new Promise((r) => setTimeout(r, 50));
+});
+
 beforeEach(async () => {
   vi.clearAllMocks();
   uuidCounter = 0;
@@ -118,9 +123,7 @@ describe("ProgramBuilder", () => {
       expect(screen.getByLabelText("Program Name")).toBeInTheDocument();
     });
 
-    expect(
-      screen.getByLabelText("Deload Every N Weeks"),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Deload Every N Weeks")).toBeInTheDocument();
   });
 
   it("renders Add Routine button", async () => {

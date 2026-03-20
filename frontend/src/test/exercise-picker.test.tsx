@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 // Mock the api client
@@ -99,6 +99,11 @@ const sampleExercises: DbExercise[] = [
   },
 ];
 
+afterEach(async () => {
+  cleanup();
+  await new Promise((r) => setTimeout(r, 50));
+});
+
 beforeEach(async () => {
   await db.delete();
   await db.open();
@@ -177,7 +182,9 @@ describe("ExercisePicker", () => {
 
   it("excludes exercises by excludeIds", async () => {
     const onSelect = vi.fn();
-    render(<ExercisePicker onSelect={onSelect} excludeIds={["ex-1", "ex-2"]} />);
+    render(
+      <ExercisePicker onSelect={onSelect} excludeIds={["ex-1", "ex-2"]} />,
+    );
 
     await waitFor(() => {
       expect(screen.getByText("Overhead Press")).toBeInTheDocument();

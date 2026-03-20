@@ -1,17 +1,20 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { db, type DbProgram, type DbUserProgram } from "@/db/index";
+import { ChevronLeft, ChevronRight, Check } from "lucide-react";
+import {
+  db,
+  type DbProgram,
+  type DbUserProgram,
+  type DbWorkoutSession,
+} from "@/db/index";
 import { useAuthContext } from "@/context/AuthContext";
 import { api } from "@/api/client";
-import type { ProgramResponse, ProgramPhaseDetailResponse, UserProgramResponse } from "@/types";
+import type {
+  ProgramResponse,
+  ProgramPhaseDetailResponse,
+  UserProgramResponse,
+} from "@/types";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardAction,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -21,294 +24,496 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface WorkoutCard {
+  id: string;
+  name: string;
+  dayIndex: number;
+  isCompleted: boolean;
+  phaseWorkoutId?: string;
+  templateId?: string;
+  routineIndex?: number;
+  weekType?: "normal" | "deload";
+}
+
+interface WeekPage {
+  weekNumber: number;
+  label: string;
+  phaseIndex?: number;
+  phaseLabel?: string;
+  weekInPhase?: number;
+  workouts: WorkoutCard[];
+}
+
 interface ProgramWithEnrollment {
   program: DbProgram;
   enrollment: DbUserProgram | null;
 }
 
+// ---------------------------------------------------------------------------
+// Week-page builders
+// ---------------------------------------------------------------------------
+
+async function buildPhasedWeeks(
+  program: DbProgram,
+  enrollment: DbUserProgram,
+  completedSessions: DbWorkoutSession[],
+): Promise<{ weeks: WeekPage[]; defaultIndex: number }> {
+  const completedIds = new Set(
+    completedSessions
+      .map((s) => s.phase_workout_id)
+      .filter((id): id is string => id !== null),
+  );
+
+  const phases = await db.programPhases
+    .where("program_id")
+    .equals(program.id)
+    .toArray();
+  phases.sort((a, b) => a.order - b.order);
+
+  if (phases.length === 0) return { weeks: [], defaultIndex: 0 };
+
+  const allWorkouts = await db.phaseWorkouts
+    .where("phase_id")
+    .anyOf(phases.map((p) => p.id))
+    .toArray();
+
+  const pages: WeekPage[] = [];
+  let defaultIndex = 0;
+  let weekOffset = 0;
+
+  for (const phase of phases) {
+    const phaseWorkouts = allWorkouts.filter((w) => w.phase_id === phase.id);
+    const weekNumbers = [
+      ...new Set(phaseWorkouts.map((w) => w.week_number)),
+    ].sort((a, b) => a - b);
+    const numWeeks = Math.max(
+      phase.duration_weeks,
+      weekNumbers.length > 0 ? weekNumbers[weekNumbers.length - 1] : 0,
+    );
+
+    for (let wn = 1; wn <= numWeeks; wn++) {
+      const weekWorkouts = phaseWorkouts
+        .filter((w) => w.week_number === wn)
+        .sort((a, b) => a.day_index - b.day_index);
+
+      pages.push({
+        weekNumber: wn,
+        label: `Week ${wn}`,
+        phaseIndex: phase.order,
+        phaseLabel: `Phase ${phase.order + 1}: ${phase.name}`,
+        weekInPhase: wn - 1,
+        workouts: weekWorkouts.map((w) => ({
+          id: w.id,
+          name: w.name,
+          dayIndex: w.day_index,
+          isCompleted: completedIds.has(w.id),
+          phaseWorkoutId: w.id,
+        })),
+      });
+    }
+
+    if (phase.order === enrollment.current_phase_index) {
+      defaultIndex = weekOffset + enrollment.current_week_in_phase;
+    }
+    weekOffset += numWeeks;
+  }
+
+  return {
+    weeks: pages,
+    defaultIndex: Math.min(defaultIndex, Math.max(pages.length - 1, 0)),
+  };
+}
+
+async function buildRotatingWeeks(
+  program: DbProgram,
+  enrollment: DbUserProgram,
+): Promise<{ weeks: WeekPage[]; defaultIndex: number }> {
+  const routines = await db.programRoutines
+    .where("program_id")
+    .equals(program.id)
+    .toArray();
+  routines.sort((a, b) => a.order - b.order);
+
+  const numWeeks = program.deload_every_n_weeks;
+  if (routines.length === 0 || numWeeks <= 0)
+    return { weeks: [], defaultIndex: 0 };
+
+  const templates = await db.workoutTemplates
+    .where("id")
+    .anyOf(routines.map((r) => r.template_id))
+    .toArray();
+  const templateMap = new Map(templates.map((t) => [t.id, t]));
+
+  const currentWeekInCycle = enrollment.weeks_completed % numWeeks;
+
+  const pages: WeekPage[] = [];
+  for (let w = 0; w < numWeeks; w++) {
+    const isDeload = w === numWeeks - 1;
+    const wType: "normal" | "deload" = isDeload ? "deload" : "normal";
+
+    pages.push({
+      weekNumber: w + 1,
+      label: isDeload ? "DELOAD" : `Week ${w + 1} of ${numWeeks}`,
+      workouts: routines.map((r, idx) => {
+        let isCompleted = false;
+        if (w < currentWeekInCycle) {
+          isCompleted = true;
+        } else if (w === currentWeekInCycle) {
+          isCompleted = idx < enrollment.current_routine_index;
+        }
+        return {
+          id: `${r.id}-w${w}`,
+          name: templateMap.get(r.template_id)?.name ?? "Unknown",
+          dayIndex: idx,
+          isCompleted,
+          templateId: r.template_id,
+          routineIndex: idx,
+          weekType: wType,
+        };
+      }),
+    });
+  }
+
+  return { weeks: pages, defaultIndex: currentWeekInCycle };
+}
+
+async function buildWeekPages(
+  program: DbProgram,
+  enrollment: DbUserProgram,
+): Promise<{ weeks: WeekPage[]; defaultIndex: number }> {
+  const sessions = await db.workoutSessions
+    .where("user_program_id")
+    .equals(enrollment.id)
+    .and((s) => s.finished_at !== null)
+    .toArray();
+  const enrollmentStarted = enrollment.started_at ?? "";
+  const currentSessions = sessions.filter(
+    (s) => s.started_at >= enrollmentStarted,
+  );
+
+  if (program.program_type === "phased") {
+    return buildPhasedWeeks(program, enrollment, currentSessions);
+  }
+  return buildRotatingWeeks(program, enrollment);
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
 export default function Programs() {
   const navigate = useNavigate();
   const { state: authState } = useAuthContext();
   const userId = authState.user?.id ?? "";
-  const [items, setItems] = useState<ProgramWithEnrollment[]>([]);
+
+  // Active program
+  const [activeProgram, setActiveProgram] = useState<DbProgram | null>(null);
+  const [activeEnrollment, setActiveEnrollment] =
+    useState<DbUserProgram | null>(null);
+  const [weekPages, setWeekPages] = useState<WeekPage[]>([]);
+  const [currentWeekIndex, setCurrentWeekIndex] = useState(0);
+  const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(
+    null,
+  );
+
+  // Library
+  const [allPrograms, setAllPrograms] = useState<ProgramWithEnrollment[]>([]);
   const [routineCounts, setRoutineCounts] = useState<Record<string, number>>(
     {},
   );
   const [phaseCounts, setPhaseCounts] = useState<Record<string, number>>({});
+  const [showLibrary, setShowLibrary] = useState(false);
+
+  // UI
   const [isLoading, setIsLoading] = useState(true);
-  const [deleteTarget, setDeleteTarget] = useState<ProgramWithEnrollment | null>(null);
+  const [deleteTarget, setDeleteTarget] =
+    useState<ProgramWithEnrollment | null>(null);
+  const touchStartRef = useRef<number | null>(null);
 
-  const loadPrograms = useCallback(async () => {
-    setIsLoading(true);
+  // -----------------------------------------------------------------------
+  // Data loading (helpers inlined to avoid stale-closure risks)
+  // -----------------------------------------------------------------------
 
-    // Load from Dexie first
-    const localPrograms = await db.programs.toArray();
-    const localEnrollments = await db.userPrograms
-      .where("user_id")
-      .equals(userId)
-      .toArray();
-    const enrollmentMap = new Map(localEnrollments.map((e) => [e.program_id, e]));
+  const loadData = useCallback(
+    async (signal: { cancelled: boolean }) => {
+      setIsLoading(true);
 
-    const localItems: ProgramWithEnrollment[] = localPrograms.map((p) => ({
-      program: p,
-      enrollment: enrollmentMap.get(p.id) ?? null,
-    }));
-    setItems(localItems);
-
-    // Load routine/phase counts
-    const counts: Record<string, number> = {};
-    const pCounts: Record<string, number> = {};
-    for (const p of localPrograms) {
-      if (p.program_type === "phased") {
-        pCounts[p.id] = await db.programPhases
-          .where("program_id")
-          .equals(p.id)
-          .count();
-      } else {
-        counts[p.id] = await db.programRoutines
-          .where("program_id")
-          .equals(p.id)
-          .count();
+      async function applyActive(
+        prog: DbProgram | null,
+        enr: DbUserProgram | null,
+      ) {
+        if (signal.cancelled) return;
+        setActiveProgram(prog);
+        setActiveEnrollment(enr);
+        if (!prog || !enr) {
+          setWeekPages([]);
+          setSelectedWorkoutId(null);
+          return;
+        }
+        const { weeks, defaultIndex } = await buildWeekPages(prog, enr);
+        if (signal.cancelled) return;
+        setWeekPages(weeks);
+        setCurrentWeekIndex(defaultIndex);
+        const dw = weeks[defaultIndex];
+        const next = dw?.workouts.find((w) => !w.isCompleted);
+        setSelectedWorkoutId(next?.id ?? dw?.workouts[0]?.id ?? null);
       }
-    }
-    setRoutineCounts(counts);
-    setPhaseCounts(pCounts);
 
-    // If authenticated and online, fetch from API and update Dexie
-    if (authState.isAuthenticated && navigator.onLine) {
+      async function refreshCounts(programs: DbProgram[]) {
+        const c: Record<string, number> = {};
+        const p: Record<string, number> = {};
+        for (const prog of programs) {
+          if (prog.program_type === "phased") {
+            p[prog.id] = await db.programPhases
+              .where("program_id")
+              .equals(prog.id)
+              .count();
+          } else {
+            c[prog.id] = await db.programRoutines
+              .where("program_id")
+              .equals(prog.id)
+              .count();
+          }
+        }
+        if (signal.cancelled) return;
+        setRoutineCounts(c);
+        setPhaseCounts(p);
+      }
+
       try {
-        const [remote, remoteEnrollments] = await Promise.all([
-          api.get<ProgramResponse[]>("/programs"),
-          api.get<UserProgramResponse[]>("/programs/enrollments"),
-        ]);
-
-        const mappedPrograms: DbProgram[] = remote.map((p) => ({
-          id: p.id,
-          user_id: p.user_id ?? null,
-          name: p.name,
-          program_type: (p.program_type ?? "rotating") as "rotating" | "phased",
-          deload_every_n_weeks: p.deload_every_n_weeks,
-          created_at: p.created_at,
-          sync_status: "synced" as const,
-        }));
-
-        const mappedEnrollments: DbUserProgram[] = remoteEnrollments.map((e) => ({
-          id: e.id,
-          user_id: e.user_id,
-          program_id: e.program_id,
-          is_active: e.is_active,
-          started_at: e.started_at,
-          current_routine_index: e.current_routine_index,
-          current_phase_index: e.current_phase_index ?? 0,
-          current_week_in_phase: e.current_week_in_phase ?? 0,
-          current_day_index: e.current_day_index ?? 0,
-          weeks_completed: e.weeks_completed,
-          last_workout_at: e.last_workout_at,
-          created_at: e.created_at,
-          sync_status: "synced" as const,
-        }));
-
-        await db.programs.bulkPut(mappedPrograms);
-        await db.userPrograms.bulkPut(mappedEnrollments);
-
-        const updatedPrograms = await db.programs.toArray();
-        const updatedEnrollments = await db.userPrograms
+        // --- Local data ---
+        const localPrograms = await db.programs.toArray();
+        const localEnrollments = await db.userPrograms
           .where("user_id")
           .equals(userId)
           .toArray();
-        const updatedEnrollmentMap = new Map(
-          updatedEnrollments.map((e) => [e.program_id, e]),
-        );
+        if (signal.cancelled) return;
 
-        setItems(
-          updatedPrograms.map((p) => ({
+        const enrollmentMap = new Map(
+          localEnrollments.map((e) => [e.program_id, e]),
+        );
+        setAllPrograms(
+          localPrograms.map((p) => ({
             program: p,
-            enrollment: updatedEnrollmentMap.get(p.id) ?? null,
+            enrollment: enrollmentMap.get(p.id) ?? null,
           })),
         );
+        await refreshCounts(localPrograms);
 
-        // Hydrate phases for phased programs
-        for (const p of remote) {
-          if ((p.program_type ?? "rotating") !== "phased") continue;
-          try {
-            const phases = await api.get<ProgramPhaseDetailResponse[]>(
-              `/programs/${p.id}/phases`,
-            );
-            await db.programPhases.bulkPut(
-              phases.map((ph) => ({
-                id: ph.id,
-                program_id: p.id,
-                name: ph.name,
-                description: ph.description,
-                order: ph.order,
-                duration_weeks: ph.duration_weeks,
-                sync_status: "synced" as const,
-              })),
-            );
-            const workoutRecords = phases.flatMap((ph) =>
-              ph.workouts.map((w) => ({
-                id: w.id,
-                phase_id: ph.id,
-                name: w.name,
-                day_index: w.day_index,
-                week_number: w.week_number,
-                sync_status: "synced" as const,
-              })),
-            );
-            if (workoutRecords.length > 0) {
-              await db.phaseWorkouts.bulkPut(workoutRecords);
-            }
-            const sectionRecords = phases.flatMap((ph) =>
-              ph.workouts.flatMap((w) =>
-                w.sections.map((s) => ({
-                  id: s.id,
-                  workout_id: w.id,
-                  name: s.name,
-                  order: s.order,
-                  notes: s.notes,
+        const activeEnr = localEnrollments.find((e) => e.is_active);
+        const activeProg = activeEnr
+          ? (localPrograms.find((p) => p.id === activeEnr.program_id) ?? null)
+          : null;
+        await applyActive(activeProg, activeEnr ?? null);
+      } catch {
+        /* Dexie query failed — leave previous state */
+      }
+
+      // --- API sync ---
+      if (authState.isAuthenticated && navigator.onLine) {
+        try {
+          const [remote, remoteEnrollments] = await Promise.all([
+            api.get<ProgramResponse[]>("/programs"),
+            api.get<UserProgramResponse[]>("/programs/enrollments"),
+          ]);
+          if (signal.cancelled) return;
+
+          await db.programs.bulkPut(
+            remote.map((p) => ({
+              id: p.id,
+              user_id: p.user_id ?? null,
+              name: p.name,
+              program_type: (p.program_type ?? "rotating") as
+                | "rotating"
+                | "phased",
+              deload_every_n_weeks: p.deload_every_n_weeks,
+              created_at: p.created_at,
+              sync_status: "synced" as const,
+            })),
+          );
+          await db.userPrograms.bulkPut(
+            remoteEnrollments.map((e) => ({
+              id: e.id,
+              user_id: e.user_id,
+              program_id: e.program_id,
+              is_active: e.is_active,
+              started_at: e.started_at,
+              current_routine_index: e.current_routine_index,
+              current_phase_index: e.current_phase_index ?? 0,
+              current_week_in_phase: e.current_week_in_phase ?? 0,
+              current_day_index: e.current_day_index ?? 0,
+              weeks_completed: e.weeks_completed,
+              last_workout_at: e.last_workout_at,
+              created_at: e.created_at,
+              sync_status: "synced" as const,
+            })),
+          );
+
+          // Hydrate phases
+          for (const p of remote) {
+            if (signal.cancelled) return;
+            if ((p.program_type ?? "rotating") !== "phased") continue;
+            try {
+              const phases = await api.get<ProgramPhaseDetailResponse[]>(
+                `/programs/${p.id}/phases`,
+              );
+              await db.programPhases.bulkPut(
+                phases.map((ph) => ({
+                  id: ph.id,
+                  program_id: p.id,
+                  name: ph.name,
+                  description: ph.description,
+                  order: ph.order,
+                  duration_weeks: ph.duration_weeks,
                   sync_status: "synced" as const,
                 })),
-              ),
-            );
-            if (sectionRecords.length > 0) {
-              await db.phaseWorkoutSections.bulkPut(sectionRecords);
-            }
-            const exerciseRecords = phases.flatMap((ph) =>
-              ph.workouts.flatMap((w) =>
-                w.sections.flatMap((s) =>
-                  s.exercises.map((ex) => ({
-                    id: ex.id,
-                    section_id: s.id,
-                    exercise_id: ex.exercise_id,
-                    order: ex.order,
-                    working_sets: ex.working_sets,
-                    reps_display: ex.reps_display,
-                    rest_period: ex.rest_period,
-                    intensity_technique: ex.intensity_technique,
-                    warmup_sets: ex.warmup_sets,
-                    notes: ex.notes,
-                    substitute1_exercise_id: ex.substitute1_exercise_id,
-                    substitute2_exercise_id: ex.substitute2_exercise_id,
+              );
+              const wrs = phases.flatMap((ph) =>
+                ph.workouts.map((w) => ({
+                  id: w.id,
+                  phase_id: ph.id,
+                  name: w.name,
+                  day_index: w.day_index,
+                  week_number: w.week_number,
+                  sync_status: "synced" as const,
+                })),
+              );
+              if (wrs.length) await db.phaseWorkouts.bulkPut(wrs);
+              const srs = phases.flatMap((ph) =>
+                ph.workouts.flatMap((w) =>
+                  w.sections.map((s) => ({
+                    id: s.id,
+                    workout_id: w.id,
+                    name: s.name,
+                    order: s.order,
+                    notes: s.notes,
                     sync_status: "synced" as const,
                   })),
                 ),
-              ),
-            );
-            if (exerciseRecords.length > 0) {
-              await db.phaseWorkoutExercises.bulkPut(exerciseRecords);
+              );
+              if (srs.length) await db.phaseWorkoutSections.bulkPut(srs);
+              const ers = phases.flatMap((ph) =>
+                ph.workouts.flatMap((w) =>
+                  w.sections.flatMap((s) =>
+                    s.exercises.map((ex) => ({
+                      id: ex.id,
+                      section_id: s.id,
+                      exercise_id: ex.exercise_id,
+                      order: ex.order,
+                      working_sets: ex.working_sets,
+                      reps_display: ex.reps_display,
+                      rest_period: ex.rest_period,
+                      intensity_technique: ex.intensity_technique,
+                      warmup_sets: ex.warmup_sets,
+                      notes: ex.notes,
+                      substitute1_exercise_id: ex.substitute1_exercise_id,
+                      substitute2_exercise_id: ex.substitute2_exercise_id,
+                      sync_status: "synced" as const,
+                    })),
+                  ),
+                ),
+              );
+              if (ers.length) await db.phaseWorkoutExercises.bulkPut(ers);
+            } catch {
+              /* phase hydration failed */
             }
-          } catch {
-            // Phase hydration failed for this program
           }
-        }
 
-        const updatedCounts: Record<string, number> = {};
-        const updatedPCounts: Record<string, number> = {};
-        for (const p of updatedPrograms) {
-          if (p.program_type === "phased") {
-            updatedPCounts[p.id] = await db.programPhases
-              .where("program_id")
-              .equals(p.id)
-              .count();
-          } else {
-            updatedCounts[p.id] = await db.programRoutines
-              .where("program_id")
-              .equals(p.id)
-              .count();
-          }
+          if (signal.cancelled) return;
+
+          // Reload from Dexie after sync
+          const updatedPrograms = await db.programs.toArray();
+          const updatedEnrollments = await db.userPrograms
+            .where("user_id")
+            .equals(userId)
+            .toArray();
+          const updatedMap = new Map(
+            updatedEnrollments.map((e) => [e.program_id, e]),
+          );
+          setAllPrograms(
+            updatedPrograms.map((p) => ({
+              program: p,
+              enrollment: updatedMap.get(p.id) ?? null,
+            })),
+          );
+          await refreshCounts(updatedPrograms);
+
+          const upActive = updatedEnrollments.find((e) => e.is_active);
+          const upProg = upActive
+            ? (updatedPrograms.find((p) => p.id === upActive.program_id) ??
+              null)
+            : null;
+          await applyActive(upProg, upActive ?? null);
+        } catch {
+          /* use cached */
         }
-        setRoutineCounts(updatedCounts);
-        setPhaseCounts(updatedPCounts);
-      } catch {
-        // Use cached data
       }
-    }
 
-    setIsLoading(false);
-  }, [authState.isAuthenticated, userId]);
+      if (!signal.cancelled) setIsLoading(false);
+    },
+    [authState.isAuthenticated, userId],
+  );
 
   useEffect(() => {
-    void loadPrograms();
-  }, [loadPrograms]);
+    const signal = { cancelled: false };
+    void loadData(signal);
+    return () => {
+      signal.cancelled = true;
+    };
+  }, [loadData]);
 
-  async function handleDelete() {
-    if (!deleteTarget) return;
-    const { program, enrollment } = deleteTarget;
-
-    // Delete enrollment from Dexie
-    if (enrollment) {
-      await db.userPrograms.delete(enrollment.id);
-    }
-
-    // For custom programs, also delete the program itself
-    if (program.user_id !== null) {
-      await db.programRoutines
-        .where("program_id")
-        .equals(program.id)
-        .delete();
-      await db.programs.delete(program.id);
-    }
-
-    // Try API if online
-    if (navigator.onLine) {
-      try {
-        await api.delete(`/programs/${program.id}`);
-      } catch {
-        // Will be handled on next sync
-      }
-    }
-
-    setDeleteTarget(null);
-    await loadPrograms();
-  }
+  // -----------------------------------------------------------------------
+  // Handlers
+  // -----------------------------------------------------------------------
 
   async function handleToggleActive(item: ProgramWithEnrollment) {
     const newActive = !item.enrollment?.is_active;
 
-    if (newActive) {
-      // Deactivate all other enrollments locally
-      const allEnrollments = await db.userPrograms
-        .where("user_id")
-        .equals(userId)
-        .toArray();
-      for (const e of allEnrollments) {
-        if (e.program_id !== item.program.id && e.is_active) {
-          await db.userPrograms.update(e.id, {
-            is_active: false,
+    await db.transaction("rw", db.userPrograms, async () => {
+      if (newActive) {
+        const all = await db.userPrograms
+          .where("user_id")
+          .equals(userId)
+          .toArray();
+        for (const e of all) {
+          if (e.program_id !== item.program.id && e.is_active) {
+            await db.userPrograms.update(e.id, {
+              is_active: false,
+              sync_status: "pending",
+            });
+          }
+        }
+        if (item.enrollment) {
+          await db.userPrograms.update(item.enrollment.id, {
+            is_active: true,
+            started_at: new Date().toISOString(),
+            current_routine_index: 0,
+            current_phase_index: 0,
+            current_week_in_phase: 0,
+            current_day_index: 0,
+            weeks_completed: 0,
+            last_workout_at: null,
             sync_status: "pending",
           });
         }
-      }
-
-      // Activate existing enrollment locally
-      if (item.enrollment) {
+      } else if (item.enrollment) {
         await db.userPrograms.update(item.enrollment.id, {
-          is_active: true,
-          started_at: new Date().toISOString(),
-          current_routine_index: 0,
-          current_phase_index: 0,
-          current_week_in_phase: 0,
-          current_day_index: 0,
-          weeks_completed: 0,
-          last_workout_at: null,
+          is_active: false,
           sync_status: "pending",
         });
       }
-    } else if (item.enrollment) {
-      await db.userPrograms.update(item.enrollment.id, {
-        is_active: false,
-        sync_status: "pending",
-      });
-    }
+    });
 
-    // Call API - the backend creates an enrollment if none exists
     if (navigator.onLine) {
       try {
         if (newActive) {
           const result = await api.post<UserProgramResponse>(
             `/programs/${item.program.id}/activate`,
           );
-          // Save the enrollment returned by the API into Dexie
           await db.userPrograms.put({
             id: result.id,
             user_id: result.user_id,
@@ -328,128 +533,372 @@ export default function Programs() {
           await api.post(`/programs/${item.program.id}/deactivate`);
         }
       } catch {
-        // Will sync later
+        /* sync later */
       }
     }
 
-    await loadPrograms();
+    setShowLibrary(false);
+    await loadData({ cancelled: false });
   }
 
-  const [phaseNames, setPhaseNames] = useState<Record<string, string>>({});
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    const { program, enrollment } = deleteTarget;
 
-  // Load phase names for phased programs
-  useEffect(() => {
-    void (async () => {
-      const allPhases = await db.programPhases.toArray();
-      const names: Record<string, string> = {};
-      for (const phase of allPhases) {
-        names[`${phase.program_id}:${phase.order}`] = phase.name;
+    if (enrollment) await db.userPrograms.delete(enrollment.id);
+    if (program.user_id !== null) {
+      // Clean up all program-related data from Dexie
+      if (program.program_type === "phased") {
+        const phaseIds = (
+          await db.programPhases
+            .where("program_id")
+            .equals(program.id)
+            .toArray()
+        ).map((p) => p.id);
+        if (phaseIds.length) {
+          const workoutIds = (
+            await db.phaseWorkouts.where("phase_id").anyOf(phaseIds).toArray()
+          ).map((w) => w.id);
+          if (workoutIds.length) {
+            const sectionIds = (
+              await db.phaseWorkoutSections
+                .where("workout_id")
+                .anyOf(workoutIds)
+                .toArray()
+            ).map((s) => s.id);
+            if (sectionIds.length)
+              await db.phaseWorkoutExercises
+                .where("section_id")
+                .anyOf(sectionIds)
+                .delete();
+            await db.phaseWorkoutSections
+              .where("workout_id")
+              .anyOf(workoutIds)
+              .delete();
+          }
+          await db.phaseWorkouts.where("phase_id").anyOf(phaseIds).delete();
+        }
+        await db.programPhases.where("program_id").equals(program.id).delete();
+      } else {
+        await db.programRoutines
+          .where("program_id")
+          .equals(program.id)
+          .delete();
       }
-      setPhaseNames(names);
-    })();
-  }, [items]);
-
-  function getWeekIndicator(enrollment: DbUserProgram, program: DbProgram): {
-    text: string;
-    isDeload: boolean;
-  } {
-    if (program.program_type === "phased") {
-      const phaseName =
-        phaseNames[`${program.id}:${enrollment.current_phase_index}`] ?? "";
-      const weekNum = enrollment.current_week_in_phase + 1;
-      return {
-        text: `Phase ${enrollment.current_phase_index + 1}${phaseName ? `: ${phaseName}` : ""} — Week ${weekNum}`,
-        isDeload: false,
-      };
+      await db.programs.delete(program.id);
     }
 
-    const isDeload =
-      enrollment.weeks_completed % program.deload_every_n_weeks ===
-      program.deload_every_n_weeks - 1;
-
-    if (isDeload) {
-      return { text: "DELOAD WEEK", isDeload: true };
+    if (navigator.onLine) {
+      try {
+        await api.delete(`/programs/${program.id}`);
+      } catch {
+        /* sync later */
+      }
     }
 
-    const weekNum =
-      (enrollment.weeks_completed % program.deload_every_n_weeks) + 1;
-    return {
-      text: `Week ${weekNum} of ${program.deload_every_n_weeks}`,
-      isDeload: false,
-    };
+    setDeleteTarget(null);
+    await loadData({ cancelled: false });
   }
+
+  function handleStartWorkout() {
+    if (!selectedWorkoutId || !activeProgram) return;
+
+    let selectedCard: WorkoutCard | undefined;
+    let weekPage: WeekPage | undefined;
+
+    for (const page of weekPages) {
+      const card = page.workouts.find((w) => w.id === selectedWorkoutId);
+      if (card) {
+        selectedCard = card;
+        weekPage = page;
+        break;
+      }
+    }
+    if (!selectedCard || !weekPage) return;
+
+    if (activeProgram.program_type === "phased") {
+      navigate("/workout", {
+        state: {
+          overridePhaseIndex: weekPage.phaseIndex,
+          overrideWeekInPhase: weekPage.weekInPhase,
+          overrideDayIndex: selectedCard.dayIndex,
+        },
+      });
+    } else {
+      navigate("/workout", {
+        state: {
+          overrideRoutineIndex: selectedCard.routineIndex,
+          overrideWeekType: selectedCard.weekType,
+        },
+      });
+    }
+  }
+
+  // Navigate to a specific week and auto-select its first non-completed workout
+  function goToWeek(index: number) {
+    if (index < 0 || index >= weekPages.length) return;
+    setCurrentWeekIndex(index);
+    const week = weekPages[index];
+    const next = week?.workouts.find((w) => !w.isCompleted);
+    setSelectedWorkoutId(next?.id ?? week?.workouts[0]?.id ?? null);
+  }
+
+  // Touch swipe for week navigation
+  function handleTouchStart(e: React.TouchEvent) {
+    if (e.touches.length !== 1) return; // ignore multi-touch
+    touchStartRef.current = e.touches[0].clientX;
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartRef.current === null) return;
+    const diff = e.changedTouches[0].clientX - touchStartRef.current;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0 && currentWeekIndex > 0) {
+        goToWeek(currentWeekIndex - 1);
+      } else if (diff < 0 && currentWeekIndex < weekPages.length - 1) {
+        goToWeek(currentWeekIndex + 1);
+      }
+    }
+    touchStartRef.current = null;
+  }
+
+  // -----------------------------------------------------------------------
+  // Render
+  // -----------------------------------------------------------------------
+
+  const currentWeek = weekPages[currentWeekIndex] ?? null;
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-28">
       <main className="mx-auto max-w-md px-4 py-6">
-        <div className="mb-6 flex items-center justify-between">
+        {/* Header */}
+        <div className="mb-4 flex items-center justify-between">
           <h1 className="text-2xl font-bold">Programs</h1>
-          <Button onClick={() => navigate("/programs/new")}>
-            Create Program
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowLibrary(true)}
+            >
+              Library
+            </Button>
+            <Button size="sm" onClick={() => navigate("/programs/new")}>
+              Create
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
           </div>
-        ) : items.length === 0 ? (
+        ) : !activeProgram || !activeEnrollment ? (
           <div className="py-12 text-center">
-            <p className="text-muted-foreground">No programs yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Create your first program to get started
+            <p className="text-lg font-semibold mb-2">No Active Program</p>
+            <p className="text-muted-foreground text-sm mb-6">
+              Activate a program from the library or create a new one.
             </p>
+            <Button onClick={() => setShowLibrary(true)}>Browse Library</Button>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {items.map(({ program, enrollment }) => {
-              const isActive = enrollment?.is_active ?? false;
-              const weekInfo =
-                isActive && enrollment
-                  ? getWeekIndicator(enrollment, program)
-                  : null;
-              const isShared = program.user_id === null;
+            {/* Active program title + unenroll */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold">{activeProgram.name}</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+                onClick={() =>
+                  void handleToggleActive({
+                    program: activeProgram,
+                    enrollment: activeEnrollment,
+                  })
+                }
+              >
+                Unenroll
+              </Button>
+            </div>
 
-              return (
-                <Card key={program.id}>
-                  <CardHeader>
-                    <div className="flex flex-col gap-1">
-                      <CardTitle>{program.name}</CardTitle>
-                      <CardDescription className="flex flex-wrap items-center gap-2">
-                        {program.program_type === "phased" ? (
-                          <span className="inline-block rounded-full bg-muted px-2 py-0.5 text-xs">
-                            {phaseCounts[program.id] ?? 0} phase
-                            {(phaseCounts[program.id] ?? 0) !== 1 ? "s" : ""}
-                          </span>
-                        ) : (
-                          <span className="inline-block rounded-full bg-muted px-2 py-0.5 text-xs">
-                            {routineCounts[program.id] ?? 0} routine
-                            {(routineCounts[program.id] ?? 0) !== 1 ? "s" : ""}
+            {/* Phase label (phased programs only) */}
+            {currentWeek?.phaseLabel && (
+              <div className="rounded-lg bg-primary/10 px-3 py-1.5 text-center">
+                <p className="text-sm font-semibold text-primary">
+                  {currentWeek.phaseLabel}
+                </p>
+              </div>
+            )}
+
+            {/* Week navigation */}
+            {weekPages.length > 0 && (
+              <>
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => goToWeek(currentWeekIndex - 1)}
+                    disabled={currentWeekIndex === 0}
+                    className="p-2 text-muted-foreground disabled:opacity-30"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <span
+                    className={`font-semibold text-sm ${
+                      currentWeek?.label === "DELOAD"
+                        ? "text-amber-600 dark:text-amber-400"
+                        : ""
+                    }`}
+                  >
+                    {currentWeek?.label}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => goToWeek(currentWeekIndex + 1)}
+                    disabled={currentWeekIndex === weekPages.length - 1}
+                    className="p-2 text-muted-foreground disabled:opacity-30"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </div>
+
+                {/* Week dots */}
+                {weekPages.length <= 12 && (
+                  <div className="flex justify-center gap-1.5">
+                    {weekPages.map((_, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => goToWeek(idx)}
+                        className={`h-2 rounded-full transition-all ${
+                          idx === currentWeekIndex
+                            ? "w-6 bg-primary"
+                            : "w-2 bg-muted-foreground/30"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Workout grid (swipeable) */}
+            <div
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+              className="min-h-[160px]"
+            >
+              {currentWeek && currentWeek.workouts.length > 0 ? (
+                <div className="grid grid-cols-2 gap-3">
+                  {currentWeek.workouts.map((workout) => {
+                    const isSelected = selectedWorkoutId === workout.id;
+                    const isNext =
+                      !workout.isCompleted &&
+                      workout.id ===
+                        currentWeek.workouts.find((w) => !w.isCompleted)?.id;
+
+                    return (
+                      <button
+                        key={workout.id}
+                        type="button"
+                        onClick={() => setSelectedWorkoutId(workout.id)}
+                        className={`rounded-xl border-2 p-4 text-left transition-all ${
+                          workout.isCompleted
+                            ? "border-border bg-muted/50 opacity-60"
+                            : isSelected
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-primary/30"
+                        }`}
+                      >
+                        <p
+                          className={`font-medium text-sm ${
+                            workout.isCompleted ? "text-muted-foreground" : ""
+                          }`}
+                        >
+                          {workout.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Day {workout.dayIndex + 1}
+                        </p>
+                        {workout.isCompleted && (
+                          <div className="flex items-center gap-1 mt-2">
+                            <Check className="h-3.5 w-3.5 text-green-500" />
+                            <span className="text-xs text-green-600 dark:text-green-400">
+                              Done
+                            </span>
+                          </div>
+                        )}
+                        {isNext && !isSelected && (
+                          <span className="inline-block mt-2 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                            Up next
                           </span>
                         )}
-                        {isActive && (
-                          <span className="inline-block rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
-                            Active
-                          </span>
-                        )}
-                        {weekInfo && (
-                          <span
-                            className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                              weekInfo.isDeload
-                                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                                : "bg-primary/10 text-primary"
-                            }`}
-                          >
-                            {weekInfo.text}
-                          </span>
-                        )}
-                      </CardDescription>
-                    </div>
-                    <CardAction>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-center text-muted-foreground py-8">
+                  No workouts for this week.
+                </p>
+              )}
+            </div>
+
+            {/* Start Workout */}
+            <Button
+              className="min-h-[48px] w-full text-base font-semibold"
+              onClick={handleStartWorkout}
+              disabled={!selectedWorkoutId}
+            >
+              Go to Workout
+            </Button>
+          </div>
+        )}
+
+        {/* ---------------------------------------------------------------- */}
+        {/* Library Dialog                                                    */}
+        {/* ---------------------------------------------------------------- */}
+        <Dialog open={showLibrary} onOpenChange={setShowLibrary}>
+          <DialogContent className="max-h-[80vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle>Program Library</DialogTitle>
+              <DialogDescription>
+                Manage your programs or activate a different one.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-3 overflow-y-auto flex-1">
+              {allPrograms.length === 0 ? (
+                <p className="text-muted-foreground text-sm text-center py-6">
+                  No programs yet. Create your first one.
+                </p>
+              ) : (
+                allPrograms.map(({ program, enrollment }) => {
+                  const isActive = enrollment?.is_active ?? false;
+                  const isShared = program.user_id === null;
+
+                  return (
+                    <div
+                      key={program.id}
+                      className="rounded-lg border border-border p-3"
+                    >
+                      <div className="mb-2">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-sm">{program.name}</p>
+                          {isActive && (
+                            <span className="rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-medium text-green-600 dark:text-green-400">
+                              Active
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {program.program_type === "phased"
+                            ? `${phaseCounts[program.id] ?? 0} phase${(phaseCounts[program.id] ?? 0) !== 1 ? "s" : ""}`
+                            : `${routineCounts[program.id] ?? 0} routine${(routineCounts[program.id] ?? 0) !== 1 ? "s" : ""}`}
+                        </p>
+                      </div>
                       <div className="flex gap-2">
                         <Button
                           variant="outline"
                           size="sm"
+                          className="flex-1"
                           onClick={() =>
                             void handleToggleActive({ program, enrollment })
                           }
@@ -459,56 +908,64 @@ export default function Programs() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => navigate(`/programs/${program.id}`)}
+                          onClick={() => {
+                            setShowLibrary(false);
+                            navigate(`/programs/${program.id}`);
+                          }}
                         >
-                          {isShared || program.program_type === "phased" ? "View" : "Edit"}
+                          {isShared || program.program_type === "phased"
+                            ? "View"
+                            : "Edit"}
                         </Button>
                         <Button
                           variant="destructive"
                           size="sm"
-                          onClick={() => setDeleteTarget({ program, enrollment })}
+                          onClick={() =>
+                            setDeleteTarget({ program, enrollment })
+                          }
                         >
                           {isShared ? "Unenroll" : "Delete"}
                         </Button>
                       </div>
-                    </CardAction>
-                  </CardHeader>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-      </main>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
 
-      <Dialog
-        open={deleteTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null);
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {deleteTarget?.program.user_id === null
-                ? "Unenroll from Program"
-                : "Delete Program"}
-            </DialogTitle>
-            <DialogDescription>
-              {deleteTarget?.program.user_id === null
-                ? `Are you sure you want to unenroll from "${deleteTarget?.program.name}"?`
-                : `Are you sure you want to delete "${deleteTarget?.program.name}"? This action cannot be undone.`}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={() => void handleDelete()}>
-              {deleteTarget?.program.user_id === null ? "Unenroll" : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        {/* Delete confirmation */}
+        <Dialog
+          open={deleteTarget !== null}
+          onOpenChange={(open) => {
+            if (!open) setDeleteTarget(null);
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {deleteTarget?.program.user_id === null
+                  ? "Unenroll from Program"
+                  : "Delete Program"}
+              </DialogTitle>
+              <DialogDescription>
+                {deleteTarget?.program.user_id === null
+                  ? `Are you sure you want to unenroll from "${deleteTarget?.program.name}"?`
+                  : `Are you sure you want to delete "${deleteTarget?.program.name}"? This action cannot be undone.`}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={() => void handleDelete()}>
+                {deleteTarget?.program.user_id === null ? "Unenroll" : "Delete"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </main>
     </div>
   );
 }

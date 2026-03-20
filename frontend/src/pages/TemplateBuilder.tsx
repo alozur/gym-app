@@ -4,10 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import { db, type DbExercise, type DbTemplateExercise } from "@/db/index";
 import { useAuthContext } from "@/context/AuthContext";
 import { api } from "@/api/client";
-import type {
-  TemplateCreate,
-  TemplateExerciseCreate,
-} from "@/types";
+import type { TemplateCreate, TemplateExerciseCreate } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -102,7 +99,11 @@ interface PrescriptionColumnProps {
   onChange: (fields: PrescriptionFields) => void;
 }
 
-function PrescriptionColumn({ label, fields, onChange }: PrescriptionColumnProps) {
+function PrescriptionColumn({
+  label,
+  fields,
+  onChange,
+}: PrescriptionColumnProps) {
   function update<K extends keyof PrescriptionFields>(
     key: K,
     value: PrescriptionFields[K],
@@ -155,7 +156,9 @@ function PrescriptionColumn({ label, fields, onChange }: PrescriptionColumnProps
 
       {/* RPE Prescription */}
       <div className="rounded-md border border-border p-2 flex flex-col gap-2">
-        <p className="text-[11px] font-semibold text-muted-foreground">RPE Prescription</p>
+        <p className="text-[11px] font-semibold text-muted-foreground">
+          RPE Prescription
+        </p>
 
         <div className="flex gap-2">
           <div className="flex-1">
@@ -256,7 +259,9 @@ export default function TemplateBuilder() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(isEditMode);
-  const [subPickerForEntry, setSubPickerForEntry] = useState<string | null>(null);
+  const [subPickerForEntry, setSubPickerForEntry] = useState<string | null>(
+    null,
+  );
 
   // All exercise IDs used anywhere in this template (main + substitutes)
   const allUsedExerciseIds = useMemo(() => {
@@ -292,7 +297,9 @@ export default function TemplateBuilder() {
       .equals(templateId)
       .toArray();
 
-    function toPrescription(te: DbTemplateExercise | undefined): PrescriptionFields {
+    function toPrescription(
+      te: DbTemplateExercise | undefined,
+    ): PrescriptionFields {
       if (!te) return defaultPrescription();
       return {
         working_sets: te.working_sets,
@@ -313,7 +320,10 @@ export default function TemplateBuilder() {
     const subTEs = allTEs.filter((te) => !!te.parent_exercise_id);
 
     // Group main TEs by exercise_id
-    const grouped = new Map<string, { normal?: DbTemplateExercise; deload?: DbTemplateExercise }>();
+    const grouped = new Map<
+      string,
+      { normal?: DbTemplateExercise; deload?: DbTemplateExercise }
+    >();
     for (const te of mainTEs) {
       const key = te.exercise_id;
       const existing = grouped.get(key) ?? {};
@@ -339,12 +349,17 @@ export default function TemplateBuilder() {
       const mainNormalId = pair.normal?.id;
 
       // Build substitute entries from new-format TEs
-      const childTEs = mainNormalId ? (subsByParent.get(mainNormalId) ?? []) : [];
+      const childTEs = mainNormalId
+        ? (subsByParent.get(mainNormalId) ?? [])
+        : [];
       let substitutes: SubstituteEntry[] = [];
 
       if (childTEs.length > 0) {
         // New format: group child TEs by exercise_id
-        const childGrouped = new Map<string, { normal?: DbTemplateExercise; deload?: DbTemplateExercise }>();
+        const childGrouped = new Map<
+          string,
+          { normal?: DbTemplateExercise; deload?: DbTemplateExercise }
+        >();
         for (const te of childTEs) {
           const existing = childGrouped.get(te.exercise_id) ?? {};
           if (te.week_type === "normal") existing.normal = te;
@@ -368,9 +383,10 @@ export default function TemplateBuilder() {
           .equals(exerciseId)
           .toArray();
         const subIds = subRecords.map((s) => s.substitute_exercise_id);
-        const subExercises = subIds.length > 0
-          ? await db.exercises.where("id").anyOf(subIds).toArray()
-          : [];
+        const subExercises =
+          subIds.length > 0
+            ? await db.exercises.where("id").anyOf(subIds).toArray()
+            : [];
 
         substitutes = subExercises.map((subEx) => ({
           exercise: subEx,
@@ -456,13 +472,23 @@ export default function TemplateBuilder() {
     );
   }
 
-  function updateExerciseField(localId: string, field: "youtube_url" | "notes", value: string) {
+  function updateExerciseField(
+    localId: string,
+    field: "youtube_url" | "notes",
+    value: string,
+  ) {
     setEntries((prev) =>
       prev.map((e) => {
         if (e.localId !== localId) return e;
-        const updated = { ...e, exercise: { ...e.exercise, [field]: value || null } };
+        const updated = {
+          ...e,
+          exercise: { ...e.exercise, [field]: value || null },
+        };
         // Persist to Dexie immediately
-        void db.exercises.update(e.exercise.id, { [field]: value || null, sync_status: "pending" });
+        void db.exercises.update(e.exercise.id, {
+          [field]: value || null,
+          sync_status: "pending",
+        });
         return updated;
       }),
     );
@@ -495,12 +521,21 @@ export default function TemplateBuilder() {
     setEntries((prev) =>
       prev.map((e) => {
         if (e.localId !== localId) return e;
-        return { ...e, substitutes: e.substitutes.filter((s) => s.exercise.id !== subExerciseId) };
+        return {
+          ...e,
+          substitutes: e.substitutes.filter(
+            (s) => s.exercise.id !== subExerciseId,
+          ),
+        };
       }),
     );
   }
 
-  function updateSubNormal(localId: string, subExerciseId: string, fields: PrescriptionFields) {
+  function updateSubNormal(
+    localId: string,
+    subExerciseId: string,
+    fields: PrescriptionFields,
+  ) {
     setEntries((prev) =>
       prev.map((e) => {
         if (e.localId !== localId) return e;
@@ -514,7 +549,11 @@ export default function TemplateBuilder() {
     );
   }
 
-  function updateSubDeload(localId: string, subExerciseId: string, fields: PrescriptionFields) {
+  function updateSubDeload(
+    localId: string,
+    subExerciseId: string,
+    fields: PrescriptionFields,
+  ) {
     setEntries((prev) =>
       prev.map((e) => {
         if (e.localId !== localId) return e;
@@ -659,10 +698,7 @@ export default function TemplateBuilder() {
       // Write to Dexie FIRST (offline-first)
       if (isEditMode) {
         // Delete old template exercises
-        await db.templateExercises
-          .where("template_id")
-          .equals(tplId)
-          .delete();
+        await db.templateExercises.where("template_id").equals(tplId).delete();
 
         // Update template
         await db.workoutTemplates.put({
@@ -712,7 +748,8 @@ export default function TemplateBuilder() {
 
       navigate("/programs");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to save template";
+      const message =
+        err instanceof Error ? err.message : "Failed to save template";
       setError(message);
     } finally {
       setIsSaving(false);
@@ -766,7 +803,9 @@ export default function TemplateBuilder() {
           {entries.map((entry, index) => (
             <Card key={entry.localId}>
               <CardHeader>
-                <CardTitle className="text-base">{entry.exercise.name}</CardTitle>
+                <CardTitle className="text-base">
+                  {entry.exercise.name}
+                </CardTitle>
                 <CardDescription>{entry.exercise.muscle_group}</CardDescription>
                 <CardAction>
                   <div className="flex gap-1">
@@ -808,7 +847,13 @@ export default function TemplateBuilder() {
                     <Input
                       value={entry.exercise.youtube_url ?? ""}
                       placeholder="https://youtube.com/watch?v=..."
-                      onChange={(e) => updateExerciseField(entry.localId, "youtube_url", e.target.value)}
+                      onChange={(e) =>
+                        updateExerciseField(
+                          entry.localId,
+                          "youtube_url",
+                          e.target.value,
+                        )
+                      }
                     />
                   </div>
                   <div>
@@ -817,7 +862,13 @@ export default function TemplateBuilder() {
                       className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-h-[60px] resize-y"
                       value={entry.exercise.notes ?? ""}
                       placeholder="Form cues, tips, etc."
-                      onChange={(e) => updateExerciseField(entry.localId, "notes", e.target.value)}
+                      onChange={(e) =>
+                        updateExerciseField(
+                          entry.localId,
+                          "notes",
+                          e.target.value,
+                        )
+                      }
                       rows={2}
                     />
                   </div>
@@ -842,37 +893,53 @@ export default function TemplateBuilder() {
                     )}
                   </div>
                   {entry.substitutes.map((sub) => (
-                    <div key={sub.exercise.id} className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 flex flex-col gap-3">
+                    <div
+                      key={sub.exercise.id}
+                      className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 flex flex-col gap-3"
+                    >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="shrink-0 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-600 dark:text-amber-400">
                             SUB
                           </span>
-                          <p className="text-sm font-medium truncate">{sub.exercise.name}</p>
+                          <p className="text-sm font-medium truncate">
+                            {sub.exercise.name}
+                          </p>
                         </div>
                         <Button
                           variant="ghost"
                           size="icon-xs"
                           className="shrink-0"
-                          onClick={() => handleRemoveSubstitute(entry.localId, sub.exercise.id)}
+                          onClick={() =>
+                            handleRemoveSubstitute(
+                              entry.localId,
+                              sub.exercise.id,
+                            )
+                          }
                           aria-label={`Remove ${sub.exercise.name}`}
                         >
                           &#10005;
                         </Button>
                       </div>
                       {sub.exercise.equipment && (
-                        <p className="text-[11px] text-muted-foreground -mt-2">{sub.exercise.equipment}</p>
+                        <p className="text-[11px] text-muted-foreground -mt-2">
+                          {sub.exercise.equipment}
+                        </p>
                       )}
                       <div className="flex gap-4">
                         <PrescriptionColumn
                           label="Normal Week"
                           fields={sub.normal}
-                          onChange={(f) => updateSubNormal(entry.localId, sub.exercise.id, f)}
+                          onChange={(f) =>
+                            updateSubNormal(entry.localId, sub.exercise.id, f)
+                          }
                         />
                         <PrescriptionColumn
                           label="Deload Week"
                           fields={sub.deload}
-                          onChange={(f) => updateSubDeload(entry.localId, sub.exercise.id, f)}
+                          onChange={(f) =>
+                            updateSubDeload(entry.localId, sub.exercise.id, f)
+                          }
                         />
                       </div>
                     </div>
@@ -902,9 +969,7 @@ export default function TemplateBuilder() {
         </div>
 
         {/* Error */}
-        {error && (
-          <p className="mt-4 text-sm text-destructive">{error}</p>
-        )}
+        {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
 
         {/* Save button */}
         <Button

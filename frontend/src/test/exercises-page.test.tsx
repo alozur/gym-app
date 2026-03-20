@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 
@@ -105,6 +105,11 @@ const sampleSubstitutions: DbExerciseSubstitution[] = [
   },
 ];
 
+afterEach(async () => {
+  cleanup();
+  await new Promise((r) => setTimeout(r, 50));
+});
+
 beforeEach(async () => {
   vi.clearAllMocks();
   await db.delete();
@@ -132,7 +137,9 @@ describe("Exercises page", () => {
     expect(screen.getByText("Squat")).toBeInTheDocument();
     expect(screen.getByText("Overhead Press")).toBeInTheDocument();
     // "Incline Dumbbell Press" appears both as exercise card and substitution pill
-    expect(screen.getAllByText("Incline Dumbbell Press").length).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getAllByText("Incline Dumbbell Press").length,
+    ).toBeGreaterThanOrEqual(1);
   });
 
   it("groups exercises by muscle group", async () => {

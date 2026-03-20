@@ -22,6 +22,9 @@ import {
 interface PhasedTodayScreenProps {
   program: DbProgram;
   enrollment: DbUserProgram;
+  overridePhaseIndex?: number;
+  overrideWeekInPhase?: number;
+  overrideDayIndex?: number;
   onStartWorkout: (
     phaseWorkoutId: string,
     programId: string,
@@ -45,17 +48,23 @@ interface SectionWithExercises {
 export function PhasedTodayScreen({
   program,
   enrollment,
+  overridePhaseIndex,
+  overrideWeekInPhase,
+  overrideDayIndex,
   onStartWorkout,
   onAdHoc,
 }: PhasedTodayScreenProps) {
   const [phase, setPhase] = useState<DbProgramPhase | null>(null);
   const [workout, setWorkout] = useState<DbPhaseWorkout | null>(null);
-  const [sectionGroups, setSectionGroups] = useState<SectionWithExercises[]>([]);
+  const [sectionGroups, setSectionGroups] = useState<SectionWithExercises[]>(
+    [],
+  );
+  const [daysPerWeek, setDaysPerWeek] = useState(3);
   const [isLoading, setIsLoading] = useState(true);
 
-  const phaseIdx = enrollment.current_phase_index;
-  const weekInPhase = enrollment.current_week_in_phase;
-  const dayIdx = enrollment.current_day_index;
+  const phaseIdx = overridePhaseIndex ?? enrollment.current_phase_index;
+  const weekInPhase = overrideWeekInPhase ?? enrollment.current_week_in_phase;
+  const dayIdx = overrideDayIndex ?? enrollment.current_day_index;
 
   useEffect(() => {
     let cancelled = false;
@@ -84,8 +93,10 @@ export function PhasedTodayScreen({
         .where("phase_id")
         .equals(currentPhase.id)
         .toArray();
-      const daysPerWeek = new Set(phaseWorkouts.map((w) => w.day_index)).size || 3;
-      const currentDayIdx = dayIdx % daysPerWeek;
+      const computedDays =
+        new Set(phaseWorkouts.map((w) => w.day_index)).size || 3;
+      setDaysPerWeek(computedDays);
+      const currentDayIdx = dayIdx % computedDays;
 
       // Find the workout matching phase + week + day
       const workouts = await db.phaseWorkouts
@@ -110,19 +121,24 @@ export function PhasedTodayScreen({
 
       // Load all exercises for these sections
       const sectionIds = sections.map((s) => s.id);
-      const allPWEs = sectionIds.length > 0
-        ? await db.phaseWorkoutExercises
-            .where("section_id")
-            .anyOf(sectionIds)
-            .toArray()
-        : [];
+      const allPWEs =
+        sectionIds.length > 0
+          ? await db.phaseWorkoutExercises
+              .where("section_id")
+              .anyOf(sectionIds)
+              .toArray()
+          : [];
 
       // Look up exercise details
       const exerciseIds = [
         ...new Set([
           ...allPWEs.map((e) => e.exercise_id),
-          ...allPWEs.map((e) => e.substitute1_exercise_id).filter(Boolean) as string[],
-          ...allPWEs.map((e) => e.substitute2_exercise_id).filter(Boolean) as string[],
+          ...(allPWEs
+            .map((e) => e.substitute1_exercise_id)
+            .filter(Boolean) as string[]),
+          ...(allPWEs
+            .map((e) => e.substitute2_exercise_id)
+            .filter(Boolean) as string[]),
         ]),
       ];
       const exercisesData =
@@ -158,10 +174,10 @@ export function PhasedTodayScreen({
             youtubeUrl: exMap.get(pwe.exercise_id)?.youtube_url ?? null,
             lastWeight: maxWeightMap.get(pwe.exercise_id) ?? null,
             sub1Name: pwe.substitute1_exercise_id
-              ? exMap.get(pwe.substitute1_exercise_id)?.name ?? null
+              ? (exMap.get(pwe.substitute1_exercise_id)?.name ?? null)
               : null,
             sub2Name: pwe.substitute2_exercise_id
-              ? exMap.get(pwe.substitute2_exercise_id)?.name ?? null
+              ? (exMap.get(pwe.substitute2_exercise_id)?.name ?? null)
               : null,
           }));
         return { section, exercises: sectionExercises };
@@ -187,7 +203,10 @@ export function PhasedTodayScreen({
         <div className="rounded-xl border border-border p-4 flex flex-col gap-3">
           <div className="h-5 w-32 rounded bg-muted animate-pulse" />
           {[1, 2, 3, 4].map((n) => (
-            <div key={n} className="rounded-md border border-border p-3 flex flex-col gap-2">
+            <div
+              key={n}
+              className="rounded-md border border-border p-3 flex flex-col gap-2"
+            >
               <div className="h-4 w-36 rounded bg-muted animate-pulse" />
               <div className="h-3 w-24 rounded-full bg-muted animate-pulse" />
             </div>
@@ -212,7 +231,7 @@ export function PhasedTodayScreen({
           Phase {phaseIdx + 1}: {phase?.name ?? "Unknown"}
         </p>
         <p className="text-xs text-muted-foreground">
-          Week {weekNum} &mdash; Day {(dayIdx % 3) + 1}
+          Week {weekNum} &mdash; Day {(dayIdx % daysPerWeek) + 1}
         </p>
       </div>
 
@@ -228,7 +247,8 @@ export function PhasedTodayScreen({
           <CardHeader>
             <CardTitle className="text-base">{workout.name}</CardTitle>
             <CardDescription>
-              {sectionGroups.reduce((n, g) => n + g.exercises.length, 0)} exercises
+              {sectionGroups.reduce((n, g) => n + g.exercises.length, 0)}{" "}
+              exercises
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -269,12 +289,25 @@ export function PhasedTodayScreen({
                             {ex.youtubeUrl && (
                               <button
                                 type="button"
-                                onClick={() => window.open(ex.youtubeUrl!, "_blank", "noopener,noreferrer")}
+                                onClick={() =>
+                                  window.open(
+                                    ex.youtubeUrl!,
+                                    "_blank",
+                                    "noopener,noreferrer",
+                                  )
+                                }
                                 className="shrink-0 p-1"
                                 aria-label="Watch video"
                               >
-                                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M21.8 8.001a2.75 2.75 0 0 0-1.94-1.93C18.12 5.5 12 5.5 12 5.5s-6.12 0-7.86.57A2.75 2.75 0 0 0 2.2 8c-.56 1.74-.56 5.37-.56 5.37s0 3.63.56 5.37a2.75 2.75 0 0 0 1.94 1.93c1.74.57 7.86.57 7.86.57s6.12 0 7.86-.57a2.75 2.75 0 0 0 1.94-1.93c.56-1.74.56-5.37.56-5.37s0-3.63-.56-5.37ZM9.75 15.02V8.98l5.25 3.02-5.25 3.02Z" fill="#FF0000"/>
+                                <svg
+                                  className="h-5 w-5"
+                                  viewBox="0 0 24 24"
+                                  fill="currentColor"
+                                >
+                                  <path
+                                    d="M21.8 8.001a2.75 2.75 0 0 0-1.94-1.93C18.12 5.5 12 5.5 12 5.5s-6.12 0-7.86.57A2.75 2.75 0 0 0 2.2 8c-.56 1.74-.56 5.37-.56 5.37s0 3.63.56 5.37a2.75 2.75 0 0 0 1.94 1.93c1.74.57 7.86.57 7.86.57s6.12 0 7.86-.57a2.75 2.75 0 0 0 1.94-1.93c.56-1.74.56-5.37.56-5.37s0-3.63-.56-5.37ZM9.75 15.02V8.98l5.25 3.02-5.25 3.02Z"
+                                    fill="#FF0000"
+                                  />
                                 </svg>
                               </button>
                             )}

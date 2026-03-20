@@ -6,12 +6,7 @@ import { useSync } from "@/hooks/useSync";
 import { api } from "@/api/client";
 import { db } from "@/db/index";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { UserResponse } from "@/types";
 import DataExport from "@/components/DataExport";
@@ -20,7 +15,8 @@ import { useDarkMode } from "@/hooks/useDarkMode";
 export default function Profile() {
   const { logout } = useAuth();
   const { state, dispatch } = useAuthContext();
-  const { isOnline, pendingCount, isSyncing, lastSyncError, syncNow } = useSync();
+  const { isOnline, pendingCount, isSyncing, lastSyncError, syncNow } =
+    useSync();
   const navigate = useNavigate();
 
   const { isDark, toggle: toggleDark } = useDarkMode();

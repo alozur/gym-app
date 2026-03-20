@@ -6,12 +6,7 @@ import {
   type DbExerciseProgress,
   type DbWorkoutSet,
 } from "@/db/index";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 // ---------------------------------------------------------------------------
@@ -42,14 +37,8 @@ export default function ExerciseLog() {
     async function load() {
       const [ex, prog, allSets] = await Promise.all([
         db.exercises.get(id!),
-        db.exerciseProgress
-          .where("exercise_id")
-          .equals(id!)
-          .toArray(),
-        db.workoutSets
-          .where("exercise_id")
-          .equals(id!)
-          .toArray(),
+        db.exerciseProgress.where("exercise_id").equals(id!).toArray(),
+        db.workoutSets.where("exercise_id").equals(id!).toArray(),
       ]);
 
       if (cancelled) return;
@@ -68,7 +57,7 @@ export default function ExerciseLog() {
 
   // Build a map of session_id -> year_week for grouping sets
   const [sessionYearWeeks, setSessionYearWeeks] = useState<Map<string, string>>(
-    new Map()
+    new Map(),
   );
 
   useEffect(() => {
@@ -120,7 +109,7 @@ export default function ExerciseLog() {
     const result: WeekRow[] = [];
     for (const yw of allYearWeeks) {
       const workingSets = (yearWeekSetsMap.get(yw) ?? []).sort(
-        (a, b) => a.set_number - b.set_number
+        (a, b) => a.set_number - b.set_number,
       );
       const prog = progressMap.get(yw);
 
@@ -139,7 +128,7 @@ export default function ExerciseLog() {
   // Determine maximum set count for column headers
   const maxSetCount = useMemo(
     () => Math.max(4, ...rows.map((r) => r.workingSets.length)),
-    [rows]
+    [rows],
   );
 
   if (isLoading) {
@@ -216,7 +205,10 @@ export default function ExerciseLog() {
                     </thead>
                     <tbody>
                       {rows.map((row) => (
-                        <tr key={row.yearWeek} className="border-b last:border-0">
+                        <tr
+                          key={row.yearWeek}
+                          className="border-b last:border-0"
+                        >
                           <td className="py-2 pr-3 font-mono text-xs whitespace-nowrap">
                             {row.yearWeek}
                           </td>

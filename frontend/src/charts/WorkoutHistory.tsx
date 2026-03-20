@@ -29,13 +29,14 @@ function dateKey(d: Date): string {
 }
 
 export default function WorkoutHistory() {
-  const [workoutMap, setWorkoutMap] = useState<Map<string, WorkoutDay[]>>(new Map());
+  const [workoutMap, setWorkoutMap] = useState<Map<string, WorkoutDay[]>>(
+    new Map(),
+  );
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-
 
   useEffect(() => {
     let cancelled = false;
@@ -48,10 +49,13 @@ export default function WorkoutHistory() {
       // Look up names: templates + phased workouts
       const templates = await db.workoutTemplates.toArray();
       const templateMap = new Map(templates.map((t) => [t.id, t.name]));
-      const phaseWorkoutIds = [...new Set(finished.map((s) => s.phase_workout_id).filter(Boolean))] as string[];
-      const phaseWorkouts = phaseWorkoutIds.length > 0
-        ? await db.phaseWorkouts.where("id").anyOf(phaseWorkoutIds).toArray()
-        : [];
+      const phaseWorkoutIds = [
+        ...new Set(finished.map((s) => s.phase_workout_id).filter(Boolean)),
+      ] as string[];
+      const phaseWorkouts =
+        phaseWorkoutIds.length > 0
+          ? await db.phaseWorkouts.where("id").anyOf(phaseWorkoutIds).toArray()
+          : [];
       const phaseMap = new Map(phaseWorkouts.map((pw) => [pw.id, pw.name]));
 
       // Sets data
@@ -100,7 +104,9 @@ export default function WorkoutHistory() {
     }
 
     void load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Build calendar grid for current month
@@ -128,7 +134,9 @@ export default function WorkoutHistory() {
 
   const today = dateKey(new Date());
 
-  const selectedWorkouts = selectedDate ? (workoutMap.get(selectedDate) ?? []) : [];
+  const selectedWorkouts = selectedDate
+    ? (workoutMap.get(selectedDate) ?? [])
+    : [];
 
   return (
     <div className="flex flex-col gap-3">
@@ -136,7 +144,15 @@ export default function WorkoutHistory() {
       <div className="flex items-center justify-between">
         <button
           type="button"
-          onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))}
+          onClick={() =>
+            setCurrentMonth(
+              new Date(
+                currentMonth.getFullYear(),
+                currentMonth.getMonth() - 1,
+                1,
+              ),
+            )
+          }
           className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted transition-colors"
           aria-label="Previous month"
         >
@@ -145,7 +161,15 @@ export default function WorkoutHistory() {
         <span className="text-sm font-semibold">{monthLabel}</span>
         <button
           type="button"
-          onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))}
+          onClick={() =>
+            setCurrentMonth(
+              new Date(
+                currentMonth.getFullYear(),
+                currentMonth.getMonth() + 1,
+                1,
+              ),
+            )
+          }
           className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted transition-colors"
           aria-label="Next month"
         >
@@ -156,7 +180,10 @@ export default function WorkoutHistory() {
       {/* Day headers */}
       <div className="grid grid-cols-7 gap-1">
         {DAY_LABELS.map((label) => (
-          <div key={label} className="text-center text-[10px] font-medium text-muted-foreground py-1">
+          <div
+            key={label}
+            className="text-center text-[10px] font-medium text-muted-foreground py-1"
+          >
             {label}
           </div>
         ))}
@@ -175,7 +202,11 @@ export default function WorkoutHistory() {
             <button
               key={key}
               type="button"
-              onClick={() => hasWorkout ? setSelectedDate(isSelected ? null : key) : undefined}
+              onClick={() =>
+                hasWorkout
+                  ? setSelectedDate(isSelected ? null : key)
+                  : undefined
+              }
               className={`aspect-square flex flex-col items-center justify-center rounded-md text-xs transition-colors ${
                 isSelected
                   ? "bg-primary text-primary-foreground"

@@ -1,7 +1,13 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
-import { db, SYNC_STATUS, type DbWorkoutSession, type DbProgram, type DbUserProgram } from "@/db/index";
+import {
+  db,
+  SYNC_STATUS,
+  type DbWorkoutSession,
+  type DbProgram,
+  type DbUserProgram,
+} from "@/db/index";
 import { useAuthContext } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { WorkoutSetup } from "./workout/WorkoutSetup";
@@ -11,15 +17,36 @@ import { PhasedTodayScreen } from "./workout/PhasedTodayScreen";
 import { getYearWeek } from "./workout/types";
 import type { WeekType } from "./workout/types";
 
+interface WorkoutOverrides {
+  overrideRoutineIndex?: number;
+  overrideWeekType?: "normal" | "deload";
+  overridePhaseIndex?: number;
+  overrideWeekInPhase?: number;
+  overrideDayIndex?: number;
+}
+
 export default function Workout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { state: authState } = useAuthContext();
   const userId = authState.user?.id ?? "";
+
+  // Capture overrides from Programs page navigation, then clear location state
+  const [workoutOverrides] = useState<WorkoutOverrides | null>(
+    () => (location.state as WorkoutOverrides) ?? null,
+  );
+  useEffect(() => {
+    if (location.state) {
+      navigate(location.pathname, { replace: true, state: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only clear state on mount
+  }, []);
 
   const [session, setSession] = useState<DbWorkoutSession | null>(null);
   const [templateName, setTemplateName] = useState<string | null>(null);
   const [activeProgram, setActiveProgram] = useState<DbProgram | null>(null);
-  const [activeEnrollment, setActiveEnrollment] = useState<DbUserProgram | null>(null);
+  const [activeEnrollment, setActiveEnrollment] =
+    useState<DbUserProgram | null>(null);
   const [checkingActive, setCheckingActive] = useState(true);
   const [showAdHoc, setShowAdHoc] = useState(false);
 
@@ -45,7 +72,9 @@ export default function Workout() {
             const template = await db.workoutTemplates.get(active.template_id);
             setTemplateName(template?.name ?? null);
           } else if (active.phase_workout_id) {
-            const phaseWorkout = await db.phaseWorkouts.get(active.phase_workout_id);
+            const phaseWorkout = await db.phaseWorkouts.get(
+              active.phase_workout_id,
+            );
             setTemplateName(phaseWorkout?.name ?? null);
           }
           setCheckingActive(false);
@@ -137,7 +166,10 @@ export default function Workout() {
             <div className="h-8 w-40 rounded bg-muted animate-pulse" />
             <div className="h-10 w-full rounded-lg bg-muted animate-pulse" />
             {[1, 2, 3].map((n) => (
-              <div key={n} className="rounded-lg border border-border p-3 flex flex-col gap-2">
+              <div
+                key={n}
+                className="rounded-lg border border-border p-3 flex flex-col gap-2"
+              >
                 <div className="h-4 w-32 rounded bg-muted animate-pulse" />
                 <div className="h-3 w-48 rounded bg-muted animate-pulse" />
               </div>
@@ -165,6 +197,9 @@ export default function Workout() {
         <PhasedTodayScreen
           program={activeProgram}
           enrollment={activeEnrollment}
+          overridePhaseIndex={workoutOverrides?.overridePhaseIndex}
+          overrideWeekInPhase={workoutOverrides?.overrideWeekInPhase}
+          overrideDayIndex={workoutOverrides?.overrideDayIndex}
           onStartWorkout={(phaseWorkoutId, programId, workoutName) =>
             void handleStart(
               null,
@@ -181,8 +216,17 @@ export default function Workout() {
         <TodayScreen
           program={activeProgram}
           enrollment={activeEnrollment}
+          overrideRoutineIndex={workoutOverrides?.overrideRoutineIndex}
+          overrideWeekType={workoutOverrides?.overrideWeekType}
           onStartWorkout={(templateId, weekType, name, programId) =>
-            void handleStart(templateId, weekType, name, programId, undefined, activeEnrollment.id)
+            void handleStart(
+              templateId,
+              weekType,
+              name,
+              programId,
+              undefined,
+              activeEnrollment.id,
+            )
           }
           onAdHoc={() => setShowAdHoc(true)}
         />

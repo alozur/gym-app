@@ -18,7 +18,6 @@ from app.models import (
     TemplateExercise,
     User,
     UserProgram,
-    WorkoutTemplate,
 )
 from app.schemas import (
     MessageResponse,
@@ -69,9 +68,7 @@ async def list_programs(
     """List shared programs and user's custom programs."""
     result = await db.execute(
         select(Program)
-        .where(
-            (Program.user_id.is_(None)) | (Program.user_id == current_user.id)
-        )
+        .where((Program.user_id.is_(None)) | (Program.user_id == current_user.id))
         .options(selectinload(Program.routines))
         .order_by(Program.created_at.desc())
     )
@@ -121,9 +118,7 @@ async def create_program(
     result = await db.execute(
         select(Program)
         .where(Program.id == program.id)
-        .options(
-            selectinload(Program.routines).selectinload(ProgramRoutine.template)
-        )
+        .options(selectinload(Program.routines).selectinload(ProgramRoutine.template))
     )
     return result.scalar_one()
 
@@ -144,8 +139,7 @@ async def get_today(
             selectinload(UserProgram.program)
             .selectinload(Program.routines)
             .selectinload(ProgramRoutine.template),
-            selectinload(UserProgram.program)
-            .selectinload(Program.phases),
+            selectinload(UserProgram.program).selectinload(Program.phases),
         )
     )
     user_program = result.scalar_one_or_none()
@@ -198,8 +192,7 @@ async def get_today(
         current_routine=ProgramRoutineResponse.model_validate(current_routine),
         template_name=current_routine.template.name,
         template_exercises=[
-            TemplateExerciseResponse.model_validate(te)
-            for te in template_exercises
+            TemplateExerciseResponse.model_validate(te) for te in template_exercises
         ],
         week_type=week_type,
         week_number=user_program.weeks_completed + 1,
@@ -344,9 +337,7 @@ async def get_program(
             Program.id == program_id,
             (Program.user_id.is_(None)) | (Program.user_id == current_user.id),
         )
-        .options(
-            selectinload(Program.routines).selectinload(ProgramRoutine.template)
-        )
+        .options(selectinload(Program.routines).selectinload(ProgramRoutine.template))
     )
     program = result.scalar_one_or_none()
     if not program:
@@ -403,9 +394,7 @@ async def update_program(
     result = await db.execute(
         select(Program)
         .where(Program.id == program.id)
-        .options(
-            selectinload(Program.routines).selectinload(ProgramRoutine.template)
-        )
+        .options(selectinload(Program.routines).selectinload(ProgramRoutine.template))
     )
     return result.scalar_one()
 
@@ -417,9 +406,7 @@ async def delete_program(
     current_user: User = Depends(get_current_user),
 ) -> dict[str, str]:
     """Delete a custom program, or unenroll from a shared program."""
-    result = await db.execute(
-        select(Program).where(Program.id == program_id)
-    )
+    result = await db.execute(select(Program).where(Program.id == program_id))
     program = result.scalar_one_or_none()
     if not program:
         raise HTTPException(
@@ -470,9 +457,7 @@ async def activate_program(
 
     if not enrollment:
         # Verify program exists
-        prog_result = await db.execute(
-            select(Program).where(Program.id == program_id)
-        )
+        prog_result = await db.execute(select(Program).where(Program.id == program_id))
         if not prog_result.scalar_one_or_none():
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Program not found"
@@ -525,9 +510,7 @@ async def advance_program(
             UserProgram.user_id == current_user.id,
             UserProgram.program_id == program_id,
         )
-        .options(
-            selectinload(UserProgram.program).selectinload(Program.routines)
-        )
+        .options(selectinload(UserProgram.program).selectinload(Program.routines))
     )
     enrollment = result.scalar_one_or_none()
     if not enrollment:
@@ -590,9 +573,7 @@ async def advance_phased_program(
         )
 
     days_per_week = 3
-    current_phase = program.phases[
-        enrollment.current_phase_index % len(program.phases)
-    ]
+    current_phase = program.phases[enrollment.current_phase_index % len(program.phases)]
 
     new_day = enrollment.current_day_index + 1
     new_week = enrollment.current_week_in_phase

@@ -40,7 +40,9 @@ async def test_create_session(auth_seeded_client: AsyncClient):
 @pytest.mark.asyncio
 async def test_log_warmup_set(auth_seeded_client: AsyncClient):
     session = await _create_session(auth_seeded_client)
-    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Barbell Bench Press")
+    exercise_id = await _get_exercise_id_by_name(
+        auth_seeded_client, "Barbell Bench Press"
+    )
 
     response = await auth_seeded_client.post(
         f"/api/sessions/{session['id']}/sets",
@@ -65,7 +67,9 @@ async def test_log_warmup_set(auth_seeded_client: AsyncClient):
 @pytest.mark.asyncio
 async def test_log_working_set(auth_seeded_client: AsyncClient):
     session = await _create_session(auth_seeded_client)
-    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Barbell Bench Press")
+    exercise_id = await _get_exercise_id_by_name(
+        auth_seeded_client, "Barbell Bench Press"
+    )
 
     response = await auth_seeded_client.post(
         f"/api/sessions/{session['id']}/sets",
@@ -89,7 +93,9 @@ async def test_log_working_set(auth_seeded_client: AsyncClient):
 @pytest.mark.asyncio
 async def test_get_session_with_sets(auth_seeded_client: AsyncClient):
     session = await _create_session(auth_seeded_client)
-    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Smith Machine Squat")
+    exercise_id = await _get_exercise_id_by_name(
+        auth_seeded_client, "Smith Machine Squat"
+    )
 
     # Log a warmup set
     await auth_seeded_client.post(

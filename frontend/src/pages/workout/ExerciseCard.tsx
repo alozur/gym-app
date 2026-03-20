@@ -2,12 +2,7 @@ import { useState, useEffect, lazy, Suspense } from "react";
 import { db, SYNC_STATUS, type DbWorkoutSet } from "@/db/index";
 import { calculateWarmupSets } from "@/utils/warmup";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -27,12 +22,9 @@ interface ExerciseCardProps {
   onUpdateSets: (
     exerciseId: string,
     setType: "working",
-    sets: SetEntry[]
+    sets: SetEntry[],
   ) => void;
-  onSubstitute: (
-    exerciseId: string,
-    newExercise: SubstituteExercise,
-  ) => void;
+  onSubstitute: (exerciseId: string, newExercise: SubstituteExercise) => void;
   onAddSet: () => void;
   onRemoveSet: () => void;
   onRemoveSetAt?: (index: number) => void;
@@ -57,20 +49,21 @@ export function ExerciseCard({
   const slides = entry.substituteExercises;
   const hasSubstitutes = slides.length > 1;
   const mainExerciseId = slides[0]?.id;
-  const isUsingSubstitute = hasSubstitutes && entry.exerciseId !== mainExerciseId;
+  const isUsingSubstitute =
+    hasSubstitutes && entry.exerciseId !== mainExerciseId;
 
   // The currently selected slide (for youtube/notes buttons)
-  const activeSlide = slides.find((s) => s.id === entry.exerciseId) ?? slides[0];
+  const activeSlide =
+    slides.find((s) => s.id === entry.exerciseId) ?? slides[0];
 
   const repLabel = entry.exerciseType === "timed" ? "secs" : "reps";
 
   // Build separate prescription parts for clear display
-  const prescriptionParts: { label: string; value: string; color: string }[] = [];
+  const prescriptionParts: { label: string; value: string; color: string }[] =
+    [];
   if (entry.repsDisplay) {
     // Format repsDisplay: "15s" → "15 seconds", "e/s" → "each side"
-    let displayReps = entry.repsDisplay
-      .replace(/\s*e\/s\s*/, "")
-      .trim();
+    let displayReps = entry.repsDisplay.replace(/\s*e\/s\s*/, "").trim();
     if (displayReps.endsWith("s") && /\d+s$/.test(displayReps)) {
       displayReps = displayReps.slice(0, -1) + " seconds";
     } else {
@@ -111,12 +104,14 @@ export function ExerciseCard({
     }
   }
 
-  const warmupGuidance = entry.warmupCount > 0
-    ? calculateWarmupSets(entry.warmupCount, entry.lastMaxWeight)
-    : null;
+  const warmupGuidance =
+    entry.warmupCount > 0
+      ? calculateWarmupSets(entry.warmupCount, entry.lastMaxWeight)
+      : null;
 
   // Check if already logged on mount (resuming a session)
-  const allSaved = entry.workingSets.length > 0 && entry.workingSets.every((s) => s.saved);
+  const allSaved =
+    entry.workingSets.length > 0 && entry.workingSets.every((s) => s.saved);
   useEffect(() => {
     if (allSaved) setIsLogged(true);
   }, [allSaved]);
@@ -124,7 +119,7 @@ export function ExerciseCard({
   function handleSetChange(
     index: number,
     field: "weight" | "reps" | "rpe",
-    value: string
+    value: string,
   ) {
     const sets = [...entry.workingSets];
     sets[index] = { ...sets[index], [field]: value };
@@ -202,7 +197,11 @@ export function ExerciseCard({
           className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted transition-colors"
           aria-label="Watch video"
         >
-          <svg className="h-5 w-5 text-red-500" viewBox="0 0 24 24" fill="currentColor">
+          <svg
+            className="h-5 w-5 text-red-500"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
             <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
           </svg>
         </button>
@@ -214,7 +213,15 @@ export function ExerciseCard({
             className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted transition-colors"
             aria-label="View notes"
           >
-            <svg className="h-4 w-4 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              className="h-4 w-4 text-blue-500"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <circle cx="12" cy="12" r="10" />
               <line x1="12" y1="16" x2="12" y2="12" />
               <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -228,7 +235,15 @@ export function ExerciseCard({
           className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted transition-colors"
           aria-label="View progress"
         >
-          <svg className="h-4 w-4 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            className="h-4 w-4 text-emerald-500"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
           </svg>
         </button>
@@ -238,11 +253,15 @@ export function ExerciseCard({
 
   return (
     <>
-      <Card className={isLogged ? "border-green-500/40 bg-green-500/5" : undefined}>
+      <Card
+        className={isLogged ? "border-green-500/40 bg-green-500/5" : undefined}
+      >
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              {isLogged && <span className="text-green-600 shrink-0">&#10003;</span>}
+              {isLogged && (
+                <span className="text-green-600 shrink-0">&#10003;</span>
+              )}
               {/* Exercise name + substitute pills */}
               {hasSubstitutes ? (
                 <div className="flex flex-wrap gap-1.5">
@@ -263,7 +282,9 @@ export function ExerciseCard({
                         }`}
                       >
                         {isSub && (
-                          <span className="mr-1 text-[10px] font-bold uppercase">SUB</span>
+                          <span className="mr-1 text-[10px] font-bold uppercase">
+                            SUB
+                          </span>
                         )}
                         {slide.name}
                       </button>
@@ -271,7 +292,9 @@ export function ExerciseCard({
                   })}
                 </div>
               ) : (
-                <CardTitle className="text-base truncate">{entry.exerciseName}</CardTitle>
+                <CardTitle className="text-base truncate">
+                  {entry.exerciseName}
+                </CardTitle>
               )}
             </div>
             {/* YouTube + Notes buttons for selected exercise */}
@@ -280,7 +303,9 @@ export function ExerciseCard({
 
           {/* Equipment line */}
           {activeSlide.equipment && (
-            <p className="text-xs text-muted-foreground">{activeSlide.equipment}</p>
+            <p className="text-xs text-muted-foreground">
+              {activeSlide.equipment}
+            </p>
           )}
 
           {/* Using substitute indicator */}
@@ -321,7 +346,10 @@ export function ExerciseCard({
           {entry.warmupCount > 0 && (
             <div className="flex flex-col gap-1.5">
               <p className="text-sm font-medium">
-                Warmup <span className="text-muted-foreground font-normal">({entry.warmupCount} sets)</span>
+                Warmup{" "}
+                <span className="text-muted-foreground font-normal">
+                  ({entry.warmupCount} sets)
+                </span>
               </p>
               {entry.exerciseType === "timed" ? (
                 <p className="text-xs text-muted-foreground italic">
@@ -334,10 +362,18 @@ export function ExerciseCard({
                       key={ws.setNumber}
                       className="flex items-center gap-3 rounded-md bg-muted/50 px-3 py-1.5 text-xs"
                     >
-                      <span className="w-4 text-center text-muted-foreground">{ws.setNumber}</span>
-                      <span className="font-mono font-medium">{ws.weight} kg</span>
-                      <span className="text-muted-foreground">&times; {ws.reps} reps</span>
-                      <span className="ml-auto text-muted-foreground">{ws.percentage}%</span>
+                      <span className="w-4 text-center text-muted-foreground">
+                        {ws.setNumber}
+                      </span>
+                      <span className="font-mono font-medium">
+                        {ws.weight} kg
+                      </span>
+                      <span className="text-muted-foreground">
+                        &times; {ws.reps} reps
+                      </span>
+                      <span className="ml-auto text-muted-foreground">
+                        {ws.percentage}%
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -352,22 +388,28 @@ export function ExerciseCard({
           {/* Last workout reference */}
           {entry.lastSets.length > 0 && (
             <div className="flex flex-col gap-1.5">
-              <p className="text-sm font-medium">
-                Last Workout
-              </p>
+              <p className="text-sm font-medium">Last Workout</p>
               <div className="flex flex-col gap-1">
                 {entry.lastSets.map((ls) => (
                   <div
                     key={ls.setNumber}
                     className="flex items-center gap-3 rounded-md bg-muted/50 px-3 py-1.5 text-xs"
                   >
-                    <span className="w-4 text-center text-muted-foreground">{ls.setNumber}</span>
-                    <span className="font-mono font-medium">{ls.weight} kg</span>
+                    <span className="w-4 text-center text-muted-foreground">
+                      {ls.setNumber}
+                    </span>
+                    <span className="font-mono font-medium">
+                      {ls.weight} kg
+                    </span>
                     <span className="text-muted-foreground">
-                      {entry.exerciseType === "timed" ? `${ls.reps}s` : `\u00d7 ${ls.reps} reps`}
+                      {entry.exerciseType === "timed"
+                        ? `${ls.reps}s`
+                        : `\u00d7 ${ls.reps} reps`}
                     </span>
                     {ls.rpe != null && (
-                      <span className="ml-auto text-muted-foreground">RPE {ls.rpe}</span>
+                      <span className="ml-auto text-muted-foreground">
+                        RPE {ls.rpe}
+                      </span>
                     )}
                   </div>
                 ))}
@@ -382,7 +424,9 @@ export function ExerciseCard({
                 Working Sets
                 {rx && (
                   <span className="text-muted-foreground font-normal">
-                    {" "}({rx.working_sets} sets, {rx.min_reps}-{rx.max_reps} {repLabel})
+                    {" "}
+                    ({rx.working_sets} sets, {rx.min_reps}-{rx.max_reps}{" "}
+                    {repLabel})
                   </span>
                 )}
               </p>
@@ -396,7 +440,9 @@ export function ExerciseCard({
                 >
                   &minus;
                 </button>
-                <span className="text-xs text-muted-foreground w-5 text-center">{entry.workingSets.length}</span>
+                <span className="text-xs text-muted-foreground w-5 text-center">
+                  {entry.workingSets.length}
+                </span>
                 <button
                   type="button"
                   onClick={onAddSet}
@@ -410,7 +456,9 @@ export function ExerciseCard({
             {entry.workingSets.map((s, i) => (
               <SwipeableRow
                 key={s.id}
-                onDelete={() => onRemoveSetAt ? onRemoveSetAt(i) : onRemoveSet()}
+                onDelete={() =>
+                  onRemoveSetAt ? onRemoveSetAt(i) : onRemoveSet()
+                }
                 disabled={s.saved || entry.workingSets.length <= 1}
               >
                 <SetRow
@@ -436,10 +484,7 @@ export function ExerciseCard({
       </Card>
 
       {/* Notes dialog */}
-      <Dialog
-        open={showNotes}
-        onOpenChange={(v) => !v && setShowNotes(false)}
-      >
+      <Dialog open={showNotes} onOpenChange={(v) => !v && setShowNotes(false)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Exercise Notes</DialogTitle>
@@ -459,7 +504,13 @@ export function ExerciseCard({
             <DialogTitle>Progression</DialogTitle>
             <DialogDescription>{entry.exerciseName}</DialogDescription>
           </DialogHeader>
-          <Suspense fallback={<p className="py-8 text-center text-sm text-muted-foreground">Loading chart...</p>}>
+          <Suspense
+            fallback={
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                Loading chart...
+              </p>
+            }
+          >
             <ProgressChart exerciseId={entry.exerciseId} />
           </Suspense>
         </DialogContent>

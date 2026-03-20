@@ -59,7 +59,9 @@ async def _get_enrollment(client: AsyncClient, program_id: str) -> dict | None:
 
 @pytest.mark.asyncio
 async def test_create_program_with_routines(auth_seeded_client: AsyncClient):
-    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Barbell Bench Press")
+    exercise_id = await _get_exercise_id_by_name(
+        auth_seeded_client, "Barbell Bench Press"
+    )
     t1 = await _create_template(auth_seeded_client, "Push Day", exercise_id)
     t2 = await _create_template(auth_seeded_client, "Pull Day", exercise_id)
 
@@ -90,7 +92,9 @@ async def test_create_program_with_routines(auth_seeded_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_list_programs(auth_seeded_client: AsyncClient):
-    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Smith Machine Squat")
+    exercise_id = await _get_exercise_id_by_name(
+        auth_seeded_client, "Smith Machine Squat"
+    )
     t1 = await _create_template(auth_seeded_client, "Leg Day", exercise_id)
 
     await auth_seeded_client.post(
@@ -132,7 +136,9 @@ async def test_get_program_detail(auth_seeded_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_update_program(auth_seeded_client: AsyncClient):
-    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Barbell Bench Press")
+    exercise_id = await _get_exercise_id_by_name(
+        auth_seeded_client, "Barbell Bench Press"
+    )
     t1 = await _create_template(auth_seeded_client, "Day A", exercise_id)
     t2 = await _create_template(auth_seeded_client, "Day B", exercise_id)
 
@@ -165,7 +171,9 @@ async def test_update_program(auth_seeded_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_delete_program(auth_seeded_client: AsyncClient):
-    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Smith Machine Squat")
+    exercise_id = await _get_exercise_id_by_name(
+        auth_seeded_client, "Smith Machine Squat"
+    )
     t1 = await _create_template(auth_seeded_client, "Temp", exercise_id)
 
     create_resp = await auth_seeded_client.post(
@@ -185,7 +193,9 @@ async def test_delete_program(auth_seeded_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_activate_deactivate_program(auth_seeded_client: AsyncClient):
-    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Barbell Bench Press")
+    exercise_id = await _get_exercise_id_by_name(
+        auth_seeded_client, "Barbell Bench Press"
+    )
     t1 = await _create_template(auth_seeded_client, "Activate Test", exercise_id)
 
     create_resp = await auth_seeded_client.post(
@@ -211,7 +221,9 @@ async def test_activate_deactivate_program(auth_seeded_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_today_endpoint(auth_seeded_client: AsyncClient):
-    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Barbell Bench Press")
+    exercise_id = await _get_exercise_id_by_name(
+        auth_seeded_client, "Barbell Bench Press"
+    )
     t1 = await _create_template(auth_seeded_client, "Today Push", exercise_id)
     t2 = await _create_template(auth_seeded_client, "Today Pull", exercise_id)
 
@@ -259,7 +271,9 @@ async def test_today_no_active_program(auth_seeded_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_session_finish_advances_rotation(auth_seeded_client: AsyncClient):
-    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Barbell Bench Press")
+    exercise_id = await _get_exercise_id_by_name(
+        auth_seeded_client, "Barbell Bench Press"
+    )
     t1 = await _create_template(auth_seeded_client, "Rot A", exercise_id)
     t2 = await _create_template(auth_seeded_client, "Rot B", exercise_id)
 
@@ -276,7 +290,9 @@ async def test_session_finish_advances_rotation(auth_seeded_client: AsyncClient)
     )
     program_id = create_resp.json()["id"]
 
-    activate_resp = await auth_seeded_client.post(f"/api/programs/{program_id}/activate")
+    activate_resp = await auth_seeded_client.post(
+        f"/api/programs/{program_id}/activate"
+    )
     user_program_id = activate_resp.json()["id"]
 
     # Create a session linked to the program with user_program_id
@@ -330,7 +346,9 @@ async def test_session_finish_advances_rotation(auth_seeded_client: AsyncClient)
 @pytest.mark.asyncio
 async def test_deload_detection(auth_seeded_client: AsyncClient):
     """After enough weeks, deload should be detected."""
-    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Smith Machine Squat")
+    exercise_id = await _get_exercise_id_by_name(
+        auth_seeded_client, "Smith Machine Squat"
+    )
     t1 = await _create_template(auth_seeded_client, "Deload Test", exercise_id)
 
     # Create program with deload_every_n_weeks=2 for quick testing
@@ -344,7 +362,9 @@ async def test_deload_detection(auth_seeded_client: AsyncClient):
         },
     )
     program_id = create_resp.json()["id"]
-    activate_resp = await auth_seeded_client.post(f"/api/programs/{program_id}/activate")
+    activate_resp = await auth_seeded_client.post(
+        f"/api/programs/{program_id}/activate"
+    )
     user_program_id = activate_resp.json()["id"]
 
     # Week 0 (weeks_completed=0): normal (0 % 2 == 0, not == 1)
@@ -371,3 +391,337 @@ async def test_deload_detection(auth_seeded_client: AsyncClient):
     resp = await auth_seeded_client.get("/api/programs/today")
     assert resp.json()["is_deload"] is True
     assert resp.json()["week_type"] == "deload"
+
+
+# ---------------------------------------------------------------------------
+# Helpers for phased program tests
+# ---------------------------------------------------------------------------
+
+
+async def _create_phased_program_in_db(
+    db_session,
+    user_id: str,
+    program_name: str = "Phased Test Program",
+    num_phases: int = 2,
+    days_per_week: int = 3,
+    duration_weeks: int = 2,
+    exercise_id: str | None = None,
+) -> tuple:
+    """Create a phased program with phases and workouts directly in the DB.
+
+    Returns (program_id, phase_ids, workout_ids).
+    """
+    from app.models import (
+        PhaseWorkout,
+        PhaseWorkoutExercise,
+        PhaseWorkoutSection,
+        Program,
+        ProgramPhase,
+        UserProgram,
+    )
+
+    program = Program(
+        user_id=user_id,
+        name=program_name,
+        program_type="phased",
+        deload_every_n_weeks=6,
+    )
+    db_session.add(program)
+    await db_session.flush()
+
+    # Auto-enroll
+    enrollment = UserProgram(user_id=user_id, program_id=program.id)
+    db_session.add(enrollment)
+
+    phase_ids = []
+    workout_ids = []
+
+    for phase_order in range(num_phases):
+        phase = ProgramPhase(
+            program_id=program.id,
+            name=f"Phase {phase_order + 1}",
+            description=f"Test phase {phase_order + 1}",
+            order=phase_order,
+            duration_weeks=duration_weeks,
+        )
+        db_session.add(phase)
+        await db_session.flush()
+        phase_ids.append(phase.id)
+
+        # Create workouts for each week * day combination
+        for week in range(1, duration_weeks + 1):
+            for day_idx in range(days_per_week):
+                workout = PhaseWorkout(
+                    phase_id=phase.id,
+                    name=f"Phase {phase_order + 1} W{week} D{day_idx + 1}",
+                    day_index=day_idx,
+                    week_number=week,
+                )
+                db_session.add(workout)
+                await db_session.flush()
+                workout_ids.append(workout.id)
+
+                if exercise_id:
+                    section = PhaseWorkoutSection(
+                        workout_id=workout.id,
+                        name="Main Work",
+                        order=0,
+                        notes=None,
+                    )
+                    db_session.add(section)
+                    await db_session.flush()
+
+                    ex = PhaseWorkoutExercise(
+                        section_id=section.id,
+                        exercise_id=exercise_id,
+                        order=0,
+                        working_sets=3,
+                        reps_display="8-12",
+                        rest_period="2 min",
+                        warmup_sets=2,
+                    )
+                    db_session.add(ex)
+
+    await db_session.commit()
+    return program.id, phase_ids, workout_ids
+
+
+# ---------------------------------------------------------------------------
+# Phased program: advance-phased endpoint tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_advance_phased_increments_day(
+    auth_seeded_client: AsyncClient, db_session
+):
+    """Calling advance-phased on a phased program increments day_index from 0 to 1."""
+    # Get the current user's ID
+    me_resp = await auth_seeded_client.get("/api/auth/me")
+    assert me_resp.status_code == 200
+    user_id = me_resp.json()["id"]
+
+    exercise_id = await _get_exercise_id_by_name(
+        auth_seeded_client, "Barbell Bench Press"
+    )
+    program_id, _phase_ids, _workout_ids = await _create_phased_program_in_db(
+        db_session,
+        user_id=user_id,
+        program_name="Advance Day Test",
+        num_phases=1,
+        days_per_week=3,
+        duration_weeks=2,
+        exercise_id=exercise_id,
+    )
+
+    # Activate the program
+    activate_resp = await auth_seeded_client.post(
+        f"/api/programs/{program_id}/activate"
+    )
+    assert activate_resp.status_code == 200
+    assert activate_resp.json()["current_day_index"] == 0
+
+    # Advance once
+    advance_resp = await auth_seeded_client.post(
+        f"/api/programs/{program_id}/advance-phased"
+    )
+    assert advance_resp.status_code == 200
+    data = advance_resp.json()
+    assert data["current_day_index"] == 1
+    assert data["current_week_in_phase"] == 0
+    assert data["current_phase_index"] == 0
+
+
+@pytest.mark.asyncio
+async def test_advance_phased_wraps_day_to_next_week(
+    auth_seeded_client: AsyncClient, db_session
+):
+    """When day_index is at the last day (2), advance resets to 0 and bumps week."""
+    me_resp = await auth_seeded_client.get("/api/auth/me")
+    assert me_resp.status_code == 200
+    user_id = me_resp.json()["id"]
+
+    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Barbell RDL")
+    program_id, _phase_ids, _workout_ids = await _create_phased_program_in_db(
+        db_session,
+        user_id=user_id,
+        program_name="Wrap Day Test",
+        num_phases=1,
+        days_per_week=3,
+        duration_weeks=3,
+        exercise_id=exercise_id,
+    )
+
+    # Activate
+    activate_resp = await auth_seeded_client.post(
+        f"/api/programs/{program_id}/activate"
+    )
+    assert activate_resp.status_code == 200
+    enrollment_id = activate_resp.json()["id"]
+
+    # Manually set day_index to 2 (last day) via DB
+    from sqlalchemy import update as sa_update
+
+    from app.models import UserProgram
+
+    await db_session.execute(
+        sa_update(UserProgram)
+        .where(UserProgram.id == enrollment_id)
+        .values(current_day_index=2, current_week_in_phase=0)
+    )
+    await db_session.commit()
+
+    # Advance — should wrap day to 0 and bump week to 1
+    advance_resp = await auth_seeded_client.post(
+        f"/api/programs/{program_id}/advance-phased"
+    )
+    assert advance_resp.status_code == 200
+    data = advance_resp.json()
+    assert data["current_day_index"] == 0
+    assert data["current_week_in_phase"] == 1
+    assert data["current_phase_index"] == 0
+
+
+@pytest.mark.asyncio
+async def test_advance_phased_wraps_week_to_next_phase(
+    auth_seeded_client: AsyncClient, db_session
+):
+    """At the last day of the last week of a phase, advance increments the phase."""
+    me_resp = await auth_seeded_client.get("/api/auth/me")
+    assert me_resp.status_code == 200
+    user_id = me_resp.json()["id"]
+
+    exercise_id = await _get_exercise_id_by_name(
+        auth_seeded_client, "Smith Machine Squat"
+    )
+    # 2 phases, 2 weeks each, 3 days per week
+    program_id, _phase_ids, _workout_ids = await _create_phased_program_in_db(
+        db_session,
+        user_id=user_id,
+        program_name="Wrap Phase Test",
+        num_phases=2,
+        days_per_week=3,
+        duration_weeks=2,
+        exercise_id=exercise_id,
+    )
+
+    # Activate
+    activate_resp = await auth_seeded_client.post(
+        f"/api/programs/{program_id}/activate"
+    )
+    assert activate_resp.status_code == 200
+    enrollment_id = activate_resp.json()["id"]
+
+    # Set enrollment to last day of last week of phase 0:
+    # day_index=2, current_week_in_phase=1 (0-indexed, duration=2 so last is 1),
+    # current_phase_index=0
+    from sqlalchemy import update as sa_update
+
+    from app.models import UserProgram
+
+    await db_session.execute(
+        sa_update(UserProgram)
+        .where(UserProgram.id == enrollment_id)
+        .values(
+            current_day_index=2,
+            current_week_in_phase=1,
+            current_phase_index=0,
+        )
+    )
+    await db_session.commit()
+
+    # Advance — day wraps to 0, week wraps to 0, phase increments to 1
+    advance_resp = await auth_seeded_client.post(
+        f"/api/programs/{program_id}/advance-phased"
+    )
+    assert advance_resp.status_code == 200
+    data = advance_resp.json()
+    assert data["current_day_index"] == 0
+    assert data["current_week_in_phase"] == 0
+    assert data["current_phase_index"] == 1
+
+
+@pytest.mark.asyncio
+async def test_advance_phased_rejects_rotating_program(
+    auth_seeded_client: AsyncClient,
+):
+    """Calling advance-phased on a rotating program returns HTTP 400."""
+    exercise_id = await _get_exercise_id_by_name(
+        auth_seeded_client, "Barbell Bench Press"
+    )
+    t1 = await _create_template(
+        auth_seeded_client, "Rotating Advance Test", exercise_id
+    )
+
+    create_resp = await auth_seeded_client.post(
+        "/api/programs",
+        json={
+            "name": "Rotating Program",
+            "routines": [{"template_id": t1, "order": 0}],
+        },
+    )
+    assert create_resp.status_code == 201
+    program_id = create_resp.json()["id"]
+
+    # Activate it
+    activate_resp = await auth_seeded_client.post(
+        f"/api/programs/{program_id}/activate"
+    )
+    assert activate_resp.status_code == 200
+
+    # advance-phased must fail for a rotating program
+    advance_resp = await auth_seeded_client.post(
+        f"/api/programs/{program_id}/advance-phased"
+    )
+    assert advance_resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Phased program: GET /phases endpoint tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_list_phases(auth_seeded_client: AsyncClient, db_session):
+    """GET /api/programs/{id}/phases returns all phases with their workouts."""
+    me_resp = await auth_seeded_client.get("/api/auth/me")
+    assert me_resp.status_code == 200
+    user_id = me_resp.json()["id"]
+
+    exercise_id = await _get_exercise_id_by_name(
+        auth_seeded_client, "Barbell Bench Press"
+    )
+    program_id, phase_ids, _workout_ids = await _create_phased_program_in_db(
+        db_session,
+        user_id=user_id,
+        program_name="List Phases Test",
+        num_phases=2,
+        days_per_week=3,
+        duration_weeks=1,
+        exercise_id=exercise_id,
+    )
+
+    resp = await auth_seeded_client.get(f"/api/programs/{program_id}/phases")
+    assert resp.status_code == 200
+    phases = resp.json()
+
+    assert isinstance(phases, list)
+    assert len(phases) == 2
+
+    # Phases should be ordered and contain workout data
+    assert phases[0]["name"] == "Phase 1"
+    assert phases[0]["order"] == 0
+    assert phases[0]["duration_weeks"] == 1
+
+    assert phases[1]["name"] == "Phase 2"
+    assert phases[1]["order"] == 1
+
+    # Each phase should have workouts (3 days * 1 week = 3 workouts per phase)
+    assert isinstance(phases[0]["workouts"], list)
+    assert len(phases[0]["workouts"]) == 3
+
+    # Verify workouts contain sections and exercises
+    workout = phases[0]["workouts"][0]
+    assert "sections" in workout
+    assert len(workout["sections"]) == 1
+    assert len(workout["sections"][0]["exercises"]) == 1

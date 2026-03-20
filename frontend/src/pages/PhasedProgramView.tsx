@@ -272,7 +272,10 @@ export default function PhasedProgramView() {
                           </CardHeader>
                           <div className="px-6 pb-4">
                             {ww.sections.map((sw) => (
-                              <div key={sw.section.id} className="mb-3 last:mb-0">
+                              <div
+                                key={sw.section.id}
+                                className="mb-3 last:mb-0"
+                              >
                                 <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                                   {sw.section.name}
                                 </p>

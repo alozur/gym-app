@@ -1,23 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
-import {
-  db,
-  type DbWorkoutTemplate,
-  type DbProgramRoutine,
-} from "@/db/index";
+import { db, type DbWorkoutTemplate, type DbProgramRoutine } from "@/db/index";
 import { useAuthContext } from "@/context/AuthContext";
 import { api } from "@/api/client";
 import type { ProgramCreate } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardAction,
-} from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardAction } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -160,10 +151,7 @@ export default function ProgramBuilder() {
       // Write to Dexie FIRST (offline-first)
       if (isEditMode) {
         // Delete old routines
-        await db.programRoutines
-          .where("program_id")
-          .equals(progId)
-          .delete();
+        await db.programRoutines.where("program_id").equals(progId).delete();
 
         // Preserve existing program fields
         const existing = await db.programs.get(progId);
@@ -302,7 +290,9 @@ export default function ProgramBuilder() {
                     <Button
                       variant="ghost"
                       size="icon-xs"
-                      onClick={() => navigate(`/templates/${routine.template_id}`)}
+                      onClick={() =>
+                        navigate(`/templates/${routine.template_id}`)
+                      }
                       aria-label="Edit routine"
                     >
                       <Pencil className="h-3.5 w-3.5" />

@@ -18,6 +18,7 @@ def _shared_id(key: str) -> str:
     """Generate a deterministic UUID for shared/seeded data."""
     return str(uuid5(NAMESPACE_URL, f"shared:{key}"))
 
+
 exercises_data = [
     # ── Upper Day ──
     {
@@ -614,7 +615,11 @@ substitutions_data = [
     ("High-Cable Lateral Raise", "Lean-In DB Lateral Raise", 2),
     ("Pendlay Deficit Row", "Smith Machine Row", 1),
     ("Pendlay Deficit Row", "Single-Arm DB Row", 2),
-    ("Overhead Cable Triceps Extension (Bar)", "Overhead Cable Triceps Extension (Rope)", 1),
+    (
+        "Overhead Cable Triceps Extension (Bar)",
+        "Overhead Cable Triceps Extension (Rope)",
+        1,
+    ),
     ("Overhead Cable Triceps Extension (Bar)", "DB Skull Crusher", 2),
     ("Bayesian Cable Curl", "Seated Super-Bayesian High Cable Curl", 1),
     ("Bayesian Cable Curl", "Incline DB Stretch Curl", 2),
@@ -653,7 +658,11 @@ substitutions_data = [
     ("Machine Shoulder Press", "Seated DB Shoulder Press", 2),
     ("Bottom-Half DB Flye", "Bottom-Half Seated Cable Flye", 1),
     ("Bottom-Half DB Flye", "Low-to-High Cable Crossover", 2),
-    ("Overhead CableTriceps Extension (Bar)", "Overhead Cable Triceps Extension (Rope)", 1),
+    (
+        "Overhead CableTriceps Extension (Bar)",
+        "Overhead Cable Triceps Extension (Rope)",
+        1,
+    ),
     ("Overhead CableTriceps Extension (Bar)", "DB Skull Crusher", 2),
     ("Cable Triceps Kickback", "DB TricepsKickback", 1),
     ("Cable Triceps Kickback", "Bench Dip", 2),
@@ -706,11 +715,13 @@ async def seed_exercises(db: AsyncSession) -> None:
 
     # Seed Minimalift-specific exercises
     from app.seed_minimalift import seed_minimalift_exercises
+
     await seed_minimalift_exercises(db)
     await db.commit()
 
     # Seed Minimalift 5-Day-specific exercises
     from app.seed_minimalift_5day import seed_minimalift_5day_exercises
+
     await seed_minimalift_5day_exercises(db)
     await db.commit()
 
@@ -725,13 +736,91 @@ templates_data = [
     {
         "name": "1 Upper Day",
         "normal": [
-            ("45° Incline Barbell Press", 1, 3, 6, 8, 8, 9, 10, 10, "3-5 mins", "Failure", 2),
-            ("Cable Crossover Ladder", 2, 2, 8, 10, 8, 9, 10, 10, "1-2 mins", "Failure", 1),
+            (
+                "45° Incline Barbell Press",
+                1,
+                3,
+                6,
+                8,
+                8,
+                9,
+                10,
+                10,
+                "3-5 mins",
+                "Failure",
+                2,
+            ),
+            (
+                "Cable Crossover Ladder",
+                2,
+                2,
+                8,
+                10,
+                8,
+                9,
+                10,
+                10,
+                "1-2 mins",
+                "Failure",
+                1,
+            ),
             ("Wide-Grip Pull-Up", 3, 3, 8, 10, 8, 9, 10, 10, "2-3 mins", "Failure", 1),
-            ("High-Cable Lateral Raise", 4, 2, 8, 10, 8, 9, 10, 10, "1-2 mins", "Failure", 1),
-            ("Pendlay Deficit Row", 5, 2, 6, 8, 8, 9, 10, 10, "2-3 mins", "Failure + LLPs (Extend set)", 1),
-            ("Overhead Cable Triceps Extension (Bar)", 6, 2, 8, 10, 8, 9, 10, 10, "1-2 mins", "Failure", 1),
-            ("Bayesian Cable Curl", 7, 2, 8, 10, 8, 9, 10, 10, "1-2 mins", "Failure", 1),
+            (
+                "High-Cable Lateral Raise",
+                4,
+                2,
+                8,
+                10,
+                8,
+                9,
+                10,
+                10,
+                "1-2 mins",
+                "Failure",
+                1,
+            ),
+            (
+                "Pendlay Deficit Row",
+                5,
+                2,
+                6,
+                8,
+                8,
+                9,
+                10,
+                10,
+                "2-3 mins",
+                "Failure + LLPs (Extend set)",
+                1,
+            ),
+            (
+                "Overhead Cable Triceps Extension (Bar)",
+                6,
+                2,
+                8,
+                10,
+                8,
+                9,
+                10,
+                10,
+                "1-2 mins",
+                "Failure",
+                1,
+            ),
+            (
+                "Bayesian Cable Curl",
+                7,
+                2,
+                8,
+                10,
+                8,
+                9,
+                10,
+                10,
+                "1-2 mins",
+                "Failure",
+                1,
+            ),
         ],
         "deload": [
             ("45° Incline Barbell Press", 1, 2, 6, 8, 6, 7, 7, 8, "3-5 mins", None, 2),
@@ -739,18 +828,57 @@ templates_data = [
             ("Wide-Grip Pull-Up", 3, 2, 8, 10, 6, 7, 7, 8, "2-3 mins", None, 1),
             ("High-Cable Lateral Raise", 4, 2, 8, 10, 7, 8, 8, 9, "1-2 mins", None, 1),
             ("Pendlay Deficit Row", 5, 2, 6, 8, 7, 8, 8, 9, "2-3 mins", None, 1),
-            ("Overhead Cable Triceps Extension (Bar)", 6, 2, 8, 10, 7, 8, 8, 9, "1-2 mins", None, 1),
+            (
+                "Overhead Cable Triceps Extension (Bar)",
+                6,
+                2,
+                8,
+                10,
+                7,
+                8,
+                8,
+                9,
+                "1-2 mins",
+                None,
+                1,
+            ),
             ("Bayesian Cable Curl", 7, 2, 8, 10, 7, 8, 8, 9, "1-2 mins", None, 1),
         ],
     },
     {
         "name": "2 Lower Day",
         "normal": [
-            ("Lying Leg Curl", 1, 2, 8, 10, 8, 9, 10, 10, "1-2 mins", "Failure + LLPs (Extend set)", 2),
+            (
+                "Lying Leg Curl",
+                1,
+                2,
+                8,
+                10,
+                8,
+                9,
+                10,
+                10,
+                "1-2 mins",
+                "Failure + LLPs (Extend set)",
+                2,
+            ),
             ("Smith Machine Squat", 2, 3, 6, 8, 8, 9, 10, 10, "3-5 mins", "Failure", 3),
             ("Barbell RDL", 3, 3, 6, 8, 8, 9, 10, 10, "2-3 mins", "Failure", 3),
             ("Leg Extension", 4, 2, 8, 10, 8, 9, 10, 10, "1-2 mins", "Failure", 1),
-            ("Standing Calf Raise", 5, 2, 6, 8, 8, 9, 10, 10, "1-2 mins", "Static Stretch (30s)", 1),
+            (
+                "Standing Calf Raise",
+                5,
+                2,
+                6,
+                8,
+                8,
+                9,
+                10,
+                10,
+                "1-2 mins",
+                "Static Stretch (30s)",
+                1,
+            ),
             ("Cable Crunch", 6, 2, 8, 10, 8, 9, 10, 10, "1-2 mins", "Failure", 1),
         ],
         "deload": [
@@ -765,19 +893,123 @@ templates_data = [
     {
         "name": "3 Pull Day",
         "normal": [
-            ("Neutral-Grip Lat Pulldown", 1, 2, 8, 10, 8, 9, 10, 10, "2-3 mins", "Failure", 2),
-            ("Chest-Supported Machine Row", 2, 3, 8, 10, 8, 9, 10, 10, "2-3 mins", "Failure", 2),
-            ("Neutral-Grip Seated Cable Row", 3, 2, 10, 12, 8, 9, 10, 10, "2-3 mins", "Failure + LLPs (Extend set)", 1),
-            ("1-Arm 45° Cable Rear Delt Flye", 4, 2, 10, 12, 8, 9, 10, 10, "1-2 mins", "Myo-reps", 1),
+            (
+                "Neutral-Grip Lat Pulldown",
+                1,
+                2,
+                8,
+                10,
+                8,
+                9,
+                10,
+                10,
+                "2-3 mins",
+                "Failure",
+                2,
+            ),
+            (
+                "Chest-Supported Machine Row",
+                2,
+                3,
+                8,
+                10,
+                8,
+                9,
+                10,
+                10,
+                "2-3 mins",
+                "Failure",
+                2,
+            ),
+            (
+                "Neutral-Grip Seated Cable Row",
+                3,
+                2,
+                10,
+                12,
+                8,
+                9,
+                10,
+                10,
+                "2-3 mins",
+                "Failure + LLPs (Extend set)",
+                1,
+            ),
+            (
+                "1-Arm 45° Cable Rear Delt Flye",
+                4,
+                2,
+                10,
+                12,
+                8,
+                9,
+                10,
+                10,
+                "1-2 mins",
+                "Myo-reps",
+                1,
+            ),
             ("Machine Shrug", 5, 2, 10, 12, 8, 9, 10, 10, "1-2 mins", "Failure", 2),
             ("EZ-Bar Cable Curl", 6, 2, 10, 12, 8, 9, 10, 10, "1-2 mins", "Failure", 1),
-            ("Machine Preacher Curl", 7, 1, 12, 15, 7, 8, 10, 10, "1-2 mins", "Myo-reps", 1),
+            (
+                "Machine Preacher Curl",
+                7,
+                1,
+                12,
+                15,
+                7,
+                8,
+                10,
+                10,
+                "1-2 mins",
+                "Myo-reps",
+                1,
+            ),
         ],
         "deload": [
             ("Neutral-Grip Lat Pulldown", 1, 2, 8, 10, 6, 7, 7, 8, "2-3 mins", None, 2),
-            ("Chest-Supported Machine Row", 2, 2, 8, 10, 6, 7, 7, 8, "2-3 mins", None, 2),
-            ("Neutral-Grip Seated Cable Row", 3, 2, 10, 12, 7, 8, 8, 9, "2-3 mins", None, 1),
-            ("1-Arm 45° Cable Rear Delt Flye", 4, 2, 10, 12, 7, 8, 8, 9, "1-2 mins", None, 1),
+            (
+                "Chest-Supported Machine Row",
+                2,
+                2,
+                8,
+                10,
+                6,
+                7,
+                7,
+                8,
+                "2-3 mins",
+                None,
+                2,
+            ),
+            (
+                "Neutral-Grip Seated Cable Row",
+                3,
+                2,
+                10,
+                12,
+                7,
+                8,
+                8,
+                9,
+                "2-3 mins",
+                None,
+                1,
+            ),
+            (
+                "1-Arm 45° Cable Rear Delt Flye",
+                4,
+                2,
+                10,
+                12,
+                7,
+                8,
+                8,
+                9,
+                "1-2 mins",
+                None,
+                1,
+            ),
             ("Machine Shrug", 5, 2, 10, 12, 7, 8, 8, 9, "1-2 mins", None, 2),
             ("EZ-Bar Cable Curl", 6, 2, 10, 12, 7, 8, 8, 9, "1-2 mins", None, 1),
             ("Machine Preacher Curl", 7, 1, 12, 15, 7, 8, 8, 9, "1-2 mins", None, 1),
@@ -786,20 +1018,124 @@ templates_data = [
     {
         "name": "4 Push Day",
         "normal": [
-            ("Barbell Bench Press", 1, 3, 8, 10, 8, 9, 10, 10, "3-5 mins", "Failure", 3),
-            ("Machine Shoulder Press", 2, 2, 8, 10, 8, 9, 10, 10, "2-3 mins", "Failure", 2),
-            ("Bottom-Half DB Flye", 3, 2, 10, 12, 8, 9, 10, 10, "1-2 mins", "Failure", 1),
-            ("High-Cable Lateral Raise", 4, 2, 10, 12, 8, 9, 10, 10, "1-2 mins", "Myo-reps", 1),
-            ("Overhead CableTriceps Extension (Bar)", 5, 2, 10, 12, 8, 9, 10, 10, "1-2 mins", "Failure", 1),
-            ("Cable Triceps Kickback", 6, 1, 12, 15, 7, 8, 10, 10, "1-2 mins", "Myo-reps", 1),
-            ("Roman Chair Leg Raise", 7, 2, 10, 20, 8, 9, 10, 10, "1-2 mins", "Failure", 1),
+            (
+                "Barbell Bench Press",
+                1,
+                3,
+                8,
+                10,
+                8,
+                9,
+                10,
+                10,
+                "3-5 mins",
+                "Failure",
+                3,
+            ),
+            (
+                "Machine Shoulder Press",
+                2,
+                2,
+                8,
+                10,
+                8,
+                9,
+                10,
+                10,
+                "2-3 mins",
+                "Failure",
+                2,
+            ),
+            (
+                "Bottom-Half DB Flye",
+                3,
+                2,
+                10,
+                12,
+                8,
+                9,
+                10,
+                10,
+                "1-2 mins",
+                "Failure",
+                1,
+            ),
+            (
+                "High-Cable Lateral Raise",
+                4,
+                2,
+                10,
+                12,
+                8,
+                9,
+                10,
+                10,
+                "1-2 mins",
+                "Myo-reps",
+                1,
+            ),
+            (
+                "Overhead CableTriceps Extension (Bar)",
+                5,
+                2,
+                10,
+                12,
+                8,
+                9,
+                10,
+                10,
+                "1-2 mins",
+                "Failure",
+                1,
+            ),
+            (
+                "Cable Triceps Kickback",
+                6,
+                1,
+                12,
+                15,
+                7,
+                8,
+                10,
+                10,
+                "1-2 mins",
+                "Myo-reps",
+                1,
+            ),
+            (
+                "Roman Chair Leg Raise",
+                7,
+                2,
+                10,
+                20,
+                8,
+                9,
+                10,
+                10,
+                "1-2 mins",
+                "Failure",
+                1,
+            ),
         ],
         "deload": [
             ("Barbell Bench Press", 1, 2, 8, 10, 6, 7, 7, 8, "3-5 mins", None, 3),
             ("Machine Shoulder Press", 2, 2, 8, 10, 6, 7, 7, 8, "2-3 mins", None, 2),
             ("Bottom-Half DB Flye", 3, 2, 10, 12, 7, 8, 8, 9, "1-2 mins", None, 1),
             ("High-Cable Lateral Raise", 4, 2, 10, 12, 7, 8, 8, 9, "1-2 mins", None, 1),
-            ("Overhead CableTriceps Extension (Bar)", 5, 2, 10, 12, 7, 8, 8, 9, "1-2 mins", None, 1),
+            (
+                "Overhead CableTriceps Extension (Bar)",
+                5,
+                2,
+                10,
+                12,
+                7,
+                8,
+                8,
+                9,
+                "1-2 mins",
+                None,
+                1,
+            ),
             ("Cable Triceps Kickback", 6, 1, 12, 15, 7, 8, 8, 9, "1-2 mins", None, 1),
             ("Roman Chair Leg Raise", 7, 2, 10, 20, 7, 8, 8, 9, "1-2 mins", None, 1),
         ],
@@ -808,12 +1144,77 @@ templates_data = [
         "name": "5 Legs Day",
         "normal": [
             ("Leg Press", 1, 3, 8, 10, 8, 9, 10, 10, "2-3 mins", "Failure", 3),
-            ("Seated Leg Curl", 2, 2, 10, 12, 8, 9, 10, 10, "1-2 mins", "Failure + LLPs (Extend set)", 1),
-            ("DB Bulgarian Split Squat", 3, 2, 8, 10, 8, 9, 10, 10, "2-3 mins", "Failure", 2),
+            (
+                "Seated Leg Curl",
+                2,
+                2,
+                10,
+                12,
+                8,
+                9,
+                10,
+                10,
+                "1-2 mins",
+                "Failure + LLPs (Extend set)",
+                1,
+            ),
+            (
+                "DB Bulgarian Split Squat",
+                3,
+                2,
+                8,
+                10,
+                8,
+                9,
+                10,
+                10,
+                "2-3 mins",
+                "Failure",
+                2,
+            ),
             ("Leg Extension", 4, 2, 10, 12, 8, 9, 10, 10, "1-2 mins", "Myo-reps", 1),
-            ("Machine Hip Adduction", 5, 2, 10, 12, 8, 9, 10, 10, "1-2 mins", "Failure", 1),
-            ("Machine Hip Abduction", 6, 2, 10, 12, 8, 9, 10, 10, "1-2 mins", "Failure", 1),
-            ("Standing Calf Raise", 7, 2, 10, 12, 8, 9, 10, 10, "1-2 mins", "Static Stretch (30sec)", 1),
+            (
+                "Machine Hip Adduction",
+                5,
+                2,
+                10,
+                12,
+                8,
+                9,
+                10,
+                10,
+                "1-2 mins",
+                "Failure",
+                1,
+            ),
+            (
+                "Machine Hip Abduction",
+                6,
+                2,
+                10,
+                12,
+                8,
+                9,
+                10,
+                10,
+                "1-2 mins",
+                "Failure",
+                1,
+            ),
+            (
+                "Standing Calf Raise",
+                7,
+                2,
+                10,
+                12,
+                8,
+                9,
+                10,
+                10,
+                "1-2 mins",
+                "Static Stretch (30sec)",
+                1,
+            ),
         ],
         "deload": [
             ("Leg Press", 1, 2, 8, 10, 6, 7, 7, 8, "2-3 mins", None, 3),
@@ -833,17 +1234,15 @@ SHARED_JN_PROGRAM_ID = _shared_id("jn:program")
 
 async def seed_default_program(db: AsyncSession) -> None:
     """Create the shared Jeff Nippard 5-Day program blueprint (idempotent)."""
-    existing = await db.execute(select(Program).where(Program.id == SHARED_JN_PROGRAM_ID))
+    existing = await db.execute(
+        select(Program).where(Program.id == SHARED_JN_PROGRAM_ID)
+    )
     if existing.scalar_one_or_none() is not None:
         return
 
     # Build exercise name → id lookup from global exercises
-    result = await db.execute(
-        select(Exercise).where(Exercise.user_id.is_(None))
-    )
-    name_to_id: dict[str, str] = {
-        e.name: e.id for e in result.scalars().all()
-    }
+    result = await db.execute(select(Exercise).where(Exercise.user_id.is_(None)))
+    name_to_id: dict[str, str] = {e.name: e.id for e in result.scalars().all()}
 
     template_ids: list[str] = []
 
@@ -860,9 +1259,20 @@ async def seed_default_program(db: AsyncSession) -> None:
 
         for week_type in ("normal", "deload"):
             for ex in tpl_data[week_type]:
-                (ex_name, order, working_sets, min_reps, max_reps,
-                 es_rpe_min, es_rpe_max, ls_rpe_min, ls_rpe_max,
-                 rest_period, intensity_technique, warmup_sets) = ex
+                (
+                    ex_name,
+                    order,
+                    working_sets,
+                    min_reps,
+                    max_reps,
+                    es_rpe_min,
+                    es_rpe_max,
+                    ls_rpe_min,
+                    ls_rpe_max,
+                    rest_period,
+                    intensity_technique,
+                    warmup_sets,
+                ) = ex
 
                 exercise_id = name_to_id.get(ex_name)
                 if exercise_id is None:
@@ -900,12 +1310,14 @@ async def seed_default_program(db: AsyncSession) -> None:
 
     for order, tid in enumerate(template_ids):
         routine_id = _shared_id(f"jn:routine:{order}")
-        db.add(ProgramRoutine(
-            id=routine_id,
-            program_id=SHARED_JN_PROGRAM_ID,
-            template_id=tid,
-            order=order,
-        ))
+        db.add(
+            ProgramRoutine(
+                id=routine_id,
+                program_id=SHARED_JN_PROGRAM_ID,
+                template_id=tid,
+                order=order,
+            )
+        )
 
     await db.commit()
 
@@ -922,30 +1334,36 @@ async def enroll_user_in_defaults(db: AsyncSession, user_id: str | UUID) -> None
         select(Program).where(Program.id == SHARED_JN_PROGRAM_ID)
     )
     if jn_exists.scalar_one_or_none():
-        db.add(UserProgram(
-            user_id=uid,
-            program_id=SHARED_JN_PROGRAM_ID,
-            is_active=True,
-        ))
+        db.add(
+            UserProgram(
+                user_id=uid,
+                program_id=SHARED_JN_PROGRAM_ID,
+                is_active=True,
+            )
+        )
 
     ml_exists = await db.execute(
         select(Program).where(Program.id == SHARED_MINIMALIFT_PROGRAM_ID)
     )
     if ml_exists.scalar_one_or_none():
-        db.add(UserProgram(
-            user_id=uid,
-            program_id=SHARED_MINIMALIFT_PROGRAM_ID,
-            is_active=False,
-        ))
+        db.add(
+            UserProgram(
+                user_id=uid,
+                program_id=SHARED_MINIMALIFT_PROGRAM_ID,
+                is_active=False,
+            )
+        )
 
     ml5_exists = await db.execute(
         select(Program).where(Program.id == SHARED_MINIMALIFT_5DAY_PROGRAM_ID)
     )
     if ml5_exists.scalar_one_or_none():
-        db.add(UserProgram(
-            user_id=uid,
-            program_id=SHARED_MINIMALIFT_5DAY_PROGRAM_ID,
-            is_active=False,
-        ))
+        db.add(
+            UserProgram(
+                user_id=uid,
+                program_id=SHARED_MINIMALIFT_5DAY_PROGRAM_ID,
+                is_active=False,
+            )
+        )
 
     await db.flush()

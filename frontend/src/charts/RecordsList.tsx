@@ -34,17 +34,15 @@ export default function RecordsList({ exerciseId }: RecordsListProps) {
             .equals(exerciseId)
             .and((s) => s.set_type === "working")
             .toArray()
-        : await db.workoutSets
-            .where("set_type")
-            .equals("working")
-            .toArray();
+        : await db.workoutSets.where("set_type").equals("working").toArray();
 
       const exerciseIds = exerciseId
         ? [exerciseId]
         : [...new Set(allSets.map((s) => s.exercise_id))];
-      const exercises = exerciseIds.length > 0
-        ? await db.exercises.where("id").anyOf(exerciseIds).toArray()
-        : [];
+      const exercises =
+        exerciseIds.length > 0
+          ? await db.exercises.where("id").anyOf(exerciseIds).toArray()
+          : [];
       if (cancelled) return;
 
       const exerciseMap = new Map<string, DbExercise>(
@@ -52,7 +50,10 @@ export default function RecordsList({ exerciseId }: RecordsListProps) {
       );
 
       // For each exercise, find the set that gives the highest estimated 1RM
-      const bestMap = new Map<string, { weight: number; reps: number; e1rm: number }>();
+      const bestMap = new Map<
+        string,
+        { weight: number; reps: number; e1rm: number }
+      >();
       for (const s of allSets) {
         if (s.weight <= 0 || s.reps <= 0) continue;
         const e1rm = estimate1RM(s.weight, s.reps);
@@ -80,7 +81,9 @@ export default function RecordsList({ exerciseId }: RecordsListProps) {
     }
 
     void load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [exerciseId]);
 
   if (records.length === 0) {
@@ -99,10 +102,13 @@ export default function RecordsList({ exerciseId }: RecordsListProps) {
             <Trophy className="h-5 w-5 shrink-0 text-amber-500" />
             <div className="min-w-0 flex-1">
               {!exerciseId && (
-                <p className="truncate text-sm font-medium">{pr.exerciseName}</p>
+                <p className="truncate text-sm font-medium">
+                  {pr.exerciseName}
+                </p>
               )}
               <p className="text-xs text-muted-foreground">
-                Best set: {pr.maxWeight} kg x {pr.reps} {pr.reps === 1 ? "rep" : "reps"}
+                Best set: {pr.maxWeight} kg x {pr.reps}{" "}
+                {pr.reps === 1 ? "rep" : "reps"}
               </p>
             </div>
             <div className="text-right shrink-0">

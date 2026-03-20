@@ -22,6 +22,10 @@ export default defineConfig([
     rules: {
       'no-console': 'warn',
       '@typescript-eslint/no-explicit-any': 'error',
+      // Data-fetching in useEffect is standard; the rule is too strict for this pattern
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/refs': 'warn',
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },
 ])

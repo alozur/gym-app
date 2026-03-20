@@ -72,9 +72,7 @@ class Exercise(Base):
         back_populates="exercise"
     )
     workout_sets: Mapped[list["WorkoutSet"]] = relationship(back_populates="exercise")
-    progress: Mapped[list["ExerciseProgress"]] = relationship(
-        back_populates="exercise"
-    )
+    progress: Mapped[list["ExerciseProgress"]] = relationship(back_populates="exercise")
 
 
 class ExerciseSubstitution(Base):
@@ -145,9 +143,7 @@ class TemplateExercise(Base):
     last_set_rpe_min: Mapped[Decimal] = mapped_column(Numeric(3, 1), nullable=False)
     last_set_rpe_max: Mapped[Decimal] = mapped_column(Numeric(3, 1), nullable=False)
     rest_period: Mapped[str] = mapped_column(String(50), nullable=False)
-    intensity_technique: Mapped[str | None] = mapped_column(
-        String(200), nullable=True
-    )
+    intensity_technique: Mapped[str | None] = mapped_column(String(200), nullable=True)
     warmup_sets: Mapped[int] = mapped_column(Integer, nullable=False, default=2)
 
     template: Mapped[WorkoutTemplate] = relationship(
@@ -304,15 +300,11 @@ class UserProgram(Base):
     current_routine_index: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0
     )
-    current_phase_index: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0
-    )
+    current_phase_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     current_week_in_phase: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0
     )
-    current_day_index: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0
-    )
+    current_day_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     weeks_completed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     last_workout_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -434,9 +426,7 @@ class PhaseWorkoutExercise(Base):
     working_sets: Mapped[int] = mapped_column(Integer, nullable=False)
     reps_display: Mapped[str] = mapped_column(String(50), nullable=False)
     rest_period: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    intensity_technique: Mapped[str | None] = mapped_column(
-        String(200), nullable=True
-    )
+    intensity_technique: Mapped[str | None] = mapped_column(String(200), nullable=True)
     warmup_sets: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     substitute1_exercise_id: Mapped[str | None] = mapped_column(

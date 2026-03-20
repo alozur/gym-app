@@ -1,12 +1,12 @@
 services:
   backend:
     build: ./backend
-    container_name: gym-backend
+    container_name: gym-backend-${ENV:-prod}
     restart: unless-stopped
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_shared:5432/${POSTGRES_DB}?ssl=disable
       - JWT_SECRET=${JWT_SECRET}
-      - CORS_ORIGINS=https://gym.alonsozurera.synology.me,http://localhost:3080
+      - CORS_ORIGINS=${CORS_ORIGINS:-https://gym.alonsozurera.synology.me,http://localhost:3080}
     networks:
       - gym-net
       - postgres_infra_network
@@ -16,10 +16,10 @@ services:
       context: ./frontend
       args:
         VITE_API_URL: /api
-    container_name: gym-frontend
+    container_name: gym-frontend-${ENV:-prod}
     restart: unless-stopped
     ports:
-      - "3080:80"
+      - "${APP_PORT:-3080}:80"
     depends_on:
       - backend
     networks:
@@ -30,7 +30,7 @@ networks:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.27.0.0/16
-          gateway: 172.27.0.1
+        - subnet: ${SUBNET:-172.27.0.0/16}
+          gateway: ${GATEWAY:-172.27.0.1}
   postgres_infra_network:
     external: true

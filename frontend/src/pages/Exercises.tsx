@@ -14,13 +14,11 @@ import { Search, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 export default function Exercises() {
   const navigate = useNavigate();
   const [exercises, setExercises] = useState<DbExercise[]>([]);
-  const [substitutions, setSubstitutions] = useState<
-    DbExerciseSubstitution[]
-  >([]);
-  const [search, setSearch] = useState("");
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    new Set(),
+  const [substitutions, setSubstitutions] = useState<DbExerciseSubstitution[]>(
+    [],
   );
+  const [search, setSearch] = useState("");
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   // Map exercise_id -> most recent session's working sets
   const [lastSetsMap, setLastSetsMap] = useState<Map<string, DbWorkoutSet[]>>(
@@ -220,7 +218,9 @@ export default function Exercises() {
                             {/* Last workout data */}
                             {lastSets && lastSets.length > 0 && (
                               <div className="mt-2 flex flex-wrap gap-1.5">
-                                <span className="text-[10px] text-muted-foreground">Last:</span>
+                                <span className="text-[10px] text-muted-foreground">
+                                  Last:
+                                </span>
                                 {lastSets.map((s) => (
                                   <span
                                     key={s.id}

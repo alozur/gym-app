@@ -36,9 +36,7 @@ export default function Register() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-center text-2xl">
-            Create Account
-          </CardTitle>
+          <CardTitle className="text-center text-2xl">Create Account</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -84,9 +82,7 @@ export default function Register() {
                 </p>
               )}
             </div>
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
+            {error && <p className="text-sm text-destructive">{error}</p>}
             <Button
               type="submit"
               disabled={isLoading || passwordTooShort}

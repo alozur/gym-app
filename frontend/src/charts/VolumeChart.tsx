@@ -48,9 +48,10 @@ export default function VolumeChart() {
 
       // Look up session dates
       const sessionIds = [...bySession.keys()];
-      const sessions = sessionIds.length > 0
-        ? await db.workoutSessions.where("id").anyOf(sessionIds).toArray()
-        : [];
+      const sessions =
+        sessionIds.length > 0
+          ? await db.workoutSessions.where("id").anyOf(sessionIds).toArray()
+          : [];
       if (cancelled) return;
 
       const points: SessionVolume[] = [];
@@ -71,7 +72,9 @@ export default function VolumeChart() {
     }
 
     void load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const filteredData = useMemo(() => {

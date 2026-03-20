@@ -28,10 +28,7 @@ export default function BodyWeightChart() {
   const [isSaving, setIsSaving] = useState(false);
 
   async function load() {
-    const all = await db.bodyWeights
-      .where("user_id")
-      .equals(userId)
-      .toArray();
+    const all = await db.bodyWeights.where("user_id").equals(userId).toArray();
     all.sort((a, b) => a.date.localeCompare(b.date));
     setEntries(
       all.map((e) => ({
@@ -82,7 +79,10 @@ export default function BodyWeightChart() {
 
   const latest = entries.length > 0 ? entries[entries.length - 1] : null;
   const first = entries.length > 1 ? entries[0] : null;
-  const diff = latest && first ? Math.round((latest.weight - first.weight) * 10) / 10 : null;
+  const diff =
+    latest && first
+      ? Math.round((latest.weight - first.weight) * 10) / 10
+      : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -111,11 +111,15 @@ export default function BodyWeightChart() {
       {latest && (
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">
-            Current: <span className="font-semibold text-foreground">{latest.weight} kg</span>
+            Current:{" "}
+            <span className="font-semibold text-foreground">
+              {latest.weight} kg
+            </span>
           </span>
           {diff !== null && diff !== 0 && (
             <span className={diff < 0 ? "text-emerald-600" : "text-amber-600"}>
-              {diff > 0 ? "+" : ""}{diff} kg
+              {diff > 0 ? "+" : ""}
+              {diff} kg
             </span>
           )}
         </div>

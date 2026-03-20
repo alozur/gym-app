@@ -22,6 +22,8 @@ import type { WeekType } from "./types";
 interface TodayScreenProps {
   program: DbProgram;
   enrollment: DbUserProgram;
+  overrideRoutineIndex?: number;
+  overrideWeekType?: WeekType;
   onStartWorkout: (
     templateId: string,
     weekType: WeekType,
@@ -38,26 +40,44 @@ interface RoutineInfo {
   exerciseNames: string[];
 }
 
-export function TodayScreen({ program, enrollment, onStartWorkout, onAdHoc }: TodayScreenProps) {
+export function TodayScreen({
+  program,
+  enrollment,
+  overrideRoutineIndex,
+  overrideWeekType,
+  onStartWorkout,
+  onAdHoc,
+}: TodayScreenProps) {
   const [routineInfos, setRoutineInfos] = useState<RoutineInfo[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [selectedExercises, setSelectedExercises] = useState<DbTemplateExercise[]>([]);
-  const [exerciseMap, setExerciseMap] = useState<Map<string, DbExercise>>(new Map());
-  const [progressMap, setProgressMap] = useState<Map<string, number>>(new Map());
-  const [subNamesMap, setSubNamesMap] = useState<Map<string, string[]>>(new Map());
+  const [selectedExercises, setSelectedExercises] = useState<
+    DbTemplateExercise[]
+  >([]);
+  const [exerciseMap, setExerciseMap] = useState<Map<string, DbExercise>>(
+    new Map(),
+  );
+  const [progressMap, setProgressMap] = useState<Map<string, number>>(
+    new Map(),
+  );
+  const [subNamesMap, setSubNamesMap] = useState<Map<string, string[]>>(
+    new Map(),
+  );
   const [isLoading, setIsLoading] = useState(true);
 
-  const isDeload =
+  const enrollmentIsDeload =
     enrollment.weeks_completed % program.deload_every_n_weeks ===
     program.deload_every_n_weeks - 1;
-  const weekType: WeekType = isDeload ? "deload" : "normal";
+  const weekType: WeekType =
+    overrideWeekType ?? (enrollmentIsDeload ? "deload" : "normal");
+  const isDeload = weekType === "deload";
   const weekNumber =
     (enrollment.weeks_completed % program.deload_every_n_weeks) + 1;
 
   // The "last done" routine is the one before current_routine_index (wrapping)
   const lastDoneIndex =
     routineInfos.length > 0
-      ? (enrollment.current_routine_index - 1 + routineInfos.length) % routineInfos.length
+      ? (enrollment.current_routine_index - 1 + routineInfos.length) %
+        routineInfos.length
       : -1;
 
   // Load all routines and their template info
@@ -78,7 +98,8 @@ export function TodayScreen({ program, enrollment, onStartWorkout, onAdHoc }: To
 
       const infos: RoutineInfo[] = [];
       for (const routine of allRoutines) {
-        const template = await db.workoutTemplates.get(routine.template_id) ?? null;
+        const template =
+          (await db.workoutTemplates.get(routine.template_id)) ?? null;
 
         // Count exercises for this template in the current week type (main only)
         const allTexercises = template
@@ -111,15 +132,24 @@ export function TodayScreen({ program, enrollment, onStartWorkout, onAdHoc }: To
 
       if (!cancelled) {
         setRoutineInfos(infos);
-        // Auto-select the suggested next routine
-        setSelectedIndex(enrollment.current_routine_index < infos.length ? enrollment.current_routine_index : 0);
+        // Auto-select: override from Programs page, or the suggested next routine
+        const defaultIdx =
+          overrideRoutineIndex ?? enrollment.current_routine_index;
+        setSelectedIndex(defaultIdx < infos.length ? defaultIdx : 0);
         setIsLoading(false);
       }
     }
 
     void load();
-    return () => { cancelled = true; };
-  }, [program, weekType]);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    program,
+    weekType,
+    overrideRoutineIndex,
+    enrollment.current_routine_index,
+  ]);
 
   // When a routine is selected, load its full exercise details
   useEffect(() => {
@@ -127,8 +157,9 @@ export function TodayScreen({ program, enrollment, onStartWorkout, onAdHoc }: To
     let cancelled = false;
 
     async function loadExercises() {
-      const info = routineInfos[selectedIndex!];
-      if (!info.template) return;
+      if (selectedIndex === null) return;
+      const info = routineInfos[selectedIndex];
+      if (!info?.template) return;
 
       const allTEs = await db.templateExercises
         .where("template_id")
@@ -146,7 +177,10 @@ export function TodayScreen({ program, enrollment, onStartWorkout, onAdHoc }: To
       // Collect ALL exercise IDs (main + subs) for lookup
       const allExerciseIds = [...new Set(allTEs.map((te) => te.exercise_id))];
       if (allExerciseIds.length > 0) {
-        const exercises = await db.exercises.where("id").anyOf(allExerciseIds).toArray();
+        const exercises = await db.exercises
+          .where("id")
+          .anyOf(allExerciseIds)
+          .toArray();
         if (cancelled) return;
         const exMap = new Map(exercises.map((e) => [e.id, e]));
         setExerciseMap(exMap);
@@ -170,11 +204,18 @@ export function TodayScreen({ program, enrollment, onStartWorkout, onAdHoc }: To
             .anyOf(mainExIds)
             .toArray();
           if (oldSubs.length > 0) {
-            const oldSubExIds = [...new Set(oldSubs.map((s) => s.substitute_exercise_id))];
-            const oldSubExData = await db.exercises.where("id").anyOf(oldSubExIds).toArray();
+            const oldSubExIds = [
+              ...new Set(oldSubs.map((s) => s.substitute_exercise_id)),
+            ];
+            const oldSubExData = await db.exercises
+              .where("id")
+              .anyOf(oldSubExIds)
+              .toArray();
             const oldSubExMap = new Map(oldSubExData.map((e) => [e.id, e]));
             for (const te of mainTEs) {
-              const subs = oldSubs.filter((s) => s.exercise_id === te.exercise_id);
+              const subs = oldSubs.filter(
+                (s) => s.exercise_id === te.exercise_id,
+              );
               if (subs.length > 0) {
                 subNames.set(
                   te.id,
@@ -195,14 +236,17 @@ export function TodayScreen({ program, enrollment, onStartWorkout, onAdHoc }: To
         const maxWeights = new Map<string, number>();
         for (const p of allProgress) {
           const current = maxWeights.get(p.exercise_id) ?? 0;
-          if (p.max_weight > current) maxWeights.set(p.exercise_id, p.max_weight);
+          if (p.max_weight > current)
+            maxWeights.set(p.exercise_id, p.max_weight);
         }
         if (!cancelled) setProgressMap(maxWeights);
       }
     }
 
     void loadExercises();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [selectedIndex, routineInfos, weekType]);
 
   function handleStart() {
@@ -224,7 +268,10 @@ export function TodayScreen({ program, enrollment, onStartWorkout, onAdHoc }: To
         <div className="h-8 w-48 rounded bg-muted animate-pulse" />
         <div className="h-10 w-full rounded-lg bg-muted animate-pulse" />
         {[1, 2, 3].map((n) => (
-          <div key={n} className="rounded-lg border border-border p-3 flex flex-col gap-2">
+          <div
+            key={n}
+            className="rounded-lg border border-border p-3 flex flex-col gap-2"
+          >
             <div className="h-4 w-32 rounded bg-muted animate-pulse" />
             <div className="h-3 w-48 rounded bg-muted animate-pulse" />
           </div>
@@ -234,7 +281,8 @@ export function TodayScreen({ program, enrollment, onStartWorkout, onAdHoc }: To
     );
   }
 
-  const selectedInfo = selectedIndex !== null ? routineInfos[selectedIndex] : null;
+  const selectedInfo =
+    selectedIndex !== null ? routineInfos[selectedIndex] : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -255,11 +303,14 @@ export function TodayScreen({ program, enrollment, onStartWorkout, onAdHoc }: To
 
       {/* All routines */}
       <div className="flex flex-col gap-2">
-        <p className="text-sm font-medium text-muted-foreground">Select a routine</p>
+        <p className="text-sm font-medium text-muted-foreground">
+          Select a routine
+        </p>
         {routineInfos.map((info, index) => {
           const isSelected = selectedIndex === index;
           const isNext = index === enrollment.current_routine_index;
-          const isLastDone = index === lastDoneIndex && enrollment.last_workout_at !== null;
+          const isLastDone =
+            index === lastDoneIndex && enrollment.last_workout_at !== null;
 
           return (
             <button
@@ -290,10 +341,14 @@ export function TodayScreen({ program, enrollment, onStartWorkout, onAdHoc }: To
                 </div>
               </div>
               <span className="text-xs text-muted-foreground">
-                {info.exerciseCount} exercise{info.exerciseCount !== 1 ? "s" : ""}
+                {info.exerciseCount} exercise
+                {info.exerciseCount !== 1 ? "s" : ""}
                 {info.exerciseNames.length > 0 && (
-                  <> &mdash; {info.exerciseNames.slice(0, 3).join(", ")}
-                    {info.exerciseNames.length > 3 && `, +${info.exerciseNames.length - 3} more`}
+                  <>
+                    {" "}
+                    &mdash; {info.exerciseNames.slice(0, 3).join(", ")}
+                    {info.exerciseNames.length > 3 &&
+                      `, +${info.exerciseNames.length - 3} more`}
                   </>
                 )}
               </span>
@@ -306,9 +361,12 @@ export function TodayScreen({ program, enrollment, onStartWorkout, onAdHoc }: To
       {selectedInfo?.template && selectedExercises.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">{selectedInfo.template.name}</CardTitle>
+            <CardTitle className="text-base">
+              {selectedInfo.template.name}
+            </CardTitle>
             <CardDescription>
-              {selectedExercises.length} exercise{selectedExercises.length !== 1 ? "s" : ""}
+              {selectedExercises.length} exercise
+              {selectedExercises.length !== 1 ? "s" : ""}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
@@ -341,12 +399,25 @@ export function TodayScreen({ program, enrollment, onStartWorkout, onAdHoc }: To
                       {ex?.youtube_url && (
                         <button
                           type="button"
-                          onClick={() => window.open(ex.youtube_url!, "_blank", "noopener,noreferrer")}
+                          onClick={() =>
+                            window.open(
+                              ex.youtube_url!,
+                              "_blank",
+                              "noopener,noreferrer",
+                            )
+                          }
                           className="shrink-0 p-1"
                           aria-label="Watch video"
                         >
-                          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M21.8 8.001a2.75 2.75 0 0 0-1.94-1.93C18.12 5.5 12 5.5 12 5.5s-6.12 0-7.86.57A2.75 2.75 0 0 0 2.2 8c-.56 1.74-.56 5.37-.56 5.37s0 3.63.56 5.37a2.75 2.75 0 0 0 1.94 1.93c1.74.57 7.86.57 7.86.57s6.12 0 7.86-.57a2.75 2.75 0 0 0 1.94-1.93c.56-1.74.56-5.37.56-5.37s0-3.63-.56-5.37ZM9.75 15.02V8.98l5.25 3.02-5.25 3.02Z" fill="#FF0000"/>
+                          <svg
+                            className="h-5 w-5"
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                          >
+                            <path
+                              d="M21.8 8.001a2.75 2.75 0 0 0-1.94-1.93C18.12 5.5 12 5.5 12 5.5s-6.12 0-7.86.57A2.75 2.75 0 0 0 2.2 8c-.56 1.74-.56 5.37-.56 5.37s0 3.63.56 5.37a2.75 2.75 0 0 0 1.94 1.93c1.74.57 7.86.57 7.86.57s6.12 0 7.86-.57a2.75 2.75 0 0 0 1.94-1.93c.56-1.74.56-5.37.56-5.37s0-3.63-.56-5.37ZM9.75 15.02V8.98l5.25 3.02-5.25 3.02Z"
+                              fill="#FF0000"
+                            />
                           </svg>
                         </button>
                       )}

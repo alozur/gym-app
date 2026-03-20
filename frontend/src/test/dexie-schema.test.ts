@@ -25,9 +25,10 @@ beforeEach(async () => {
 });
 
 describe("GymTrackerDB schema", () => {
-  it("creates all 15 tables", () => {
+  it("creates all 16 tables", () => {
     const tableNames = testDb.tables.map((t) => t.name).sort();
     expect(tableNames).toEqual([
+      "bodyWeights",
       "exerciseProgress",
       "exerciseSubstitutions",
       "exercises",

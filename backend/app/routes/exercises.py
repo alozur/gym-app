@@ -41,9 +41,7 @@ async def list_exercises(
     return list(result.scalars().all())
 
 
-@router.post(
-    "", response_model=ExerciseResponse, status_code=status.HTTP_201_CREATED
-)
+@router.post("", response_model=ExerciseResponse, status_code=status.HTTP_201_CREATED)
 async def create_exercise(
     body: ExerciseCreate,
     db: AsyncSession = Depends(get_db),
@@ -148,9 +146,7 @@ async def add_substitution(
 ) -> ExerciseSubstitution:
     """Add a substitution exercise with priority."""
     # Verify both exercises exist and are accessible
-    result = await db.execute(
-        select(Exercise).where(Exercise.id == exercise_id)
-    )
+    result = await db.execute(select(Exercise).where(Exercise.id == exercise_id))
     exercise = result.scalar_one_or_none()
     if not exercise:
         raise HTTPException(

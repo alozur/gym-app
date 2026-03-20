@@ -1,0 +1,45 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main, dev]
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    name: Deploy to Synology
+    needs: ci
+    runs-on: [self-hosted, synology]
+    environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+    env:
+      ENV: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+      APP_PORT: ${{ github.ref == 'refs/heads/main' && '3080' || '3084' }}
+      SUBNET: ${{ github.ref == 'refs/heads/main' && '172.27.0.0/16' || '172.22.0.0/16' }}
+      GATEWAY: ${{ github.ref == 'refs/heads/main' && '172.27.0.1' || '172.22.0.1' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+          cat <<EOF > .env
+          ENV=${ENV}
+          APP_PORT=${APP_PORT}
+          SUBNET=${SUBNET}
+          GATEWAY=${GATEWAY}
+          POSTGRES_USER=${{ vars.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB=${{ vars.POSTGRES_DB }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          CORS_ORIGINS=${{ vars.CORS_ORIGINS }}
+          EOF
+
+      - name: Deploy with docker compose
+        run: |
+          docker compose -p gym-${ENV} down
+          docker compose -p gym-${ENV} up --build -d
+
+      - name: Cleanup .env
+        if: always()
+        run: rm -f .env
