@@ -191,14 +191,15 @@ function renderWorkout(locationState?: Record<string, unknown>) {
 }
 
 beforeEach(async () => {
-  cleanup();
   vi.clearAllMocks();
   await db.delete();
   await db.open();
 });
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
+  // Allow pending async effects to settle before db is torn down
+  await new Promise((r) => setTimeout(r, 50));
 });
 
 describe("Workout overrides from Programs page", () => {
@@ -234,9 +235,9 @@ describe("Workout overrides from Programs page", () => {
       expect(screen.getByText("PPL")).toBeInTheDocument();
     });
 
-    // Both routines should be visible
+    // Both routines should be visible (Pull Day appears in selector + detail card)
     expect(screen.getByText("Push Day")).toBeInTheDocument();
-    expect(screen.getByText("Pull Day")).toBeInTheDocument();
+    expect(screen.getAllByText("Pull Day").length).toBeGreaterThanOrEqual(1);
   });
 
   it("clears location state after reading overrides", async () => {
