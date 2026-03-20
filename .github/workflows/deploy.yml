@@ -16,8 +16,8 @@ jobs:
     env:
       ENV: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
       APP_PORT: ${{ github.ref == 'refs/heads/main' && '3080' || '3084' }}
-      SUBNET: ${{ github.ref == 'refs/heads/main' && '172.27.0.0/16' || '172.31.0.0/16' }}
-      GATEWAY: ${{ github.ref == 'refs/heads/main' && '172.27.0.1' || '172.31.0.1' }}
+      SUBNET: ${{ github.ref == 'refs/heads/main' && '172.27.0.0/16' || '172.22.0.0/16' }}
+      GATEWAY: ${{ github.ref == 'refs/heads/main' && '172.27.0.1' || '172.22.0.1' }}
     steps:
       - uses: actions/checkout@v4
 
