@@ -34,6 +34,8 @@ Changes:
 - Pass `include_schemas=True` and `version_table_schema=DB_SCHEMA` to `context.configure()` in both offline and online modes
 - Keep existing model imports (all 15 models)
 
+**Note:** Unlike mealmate (where `DB_SCHEMA` is a `Settings` field accessed as `settings.DB_SCHEMA`), gym-app uses a module-level constant `DB_SCHEMA` imported directly from `app.database`. All references in `env.py` must use `DB_SCHEMA` directly, not `settings.DB_SCHEMA`.
+
 ### 2. Initial migration `0001_initial_schema.py`
 
 Hand-written, idempotent migration covering all 15 tables:
@@ -57,6 +59,7 @@ Hand-written, idempotent migration covering all 15 tables:
   14. `workout_sets` (FK -> sessions, exercises)
   15. `exercise_progress` (FK -> users, exercises)
 - FK references use fully qualified `gym.table.column` format
+- ForeignKeyConstraints must include `ondelete='CASCADE'` where the ORM models specify it: `program_routines.program_id`, `program_phases.program_id`, `phase_workouts.phase_id`, `phase_workout_sections.workout_id`, `phase_workout_exercises.section_id`
 - UniqueConstraints: `uq_progress` (exercise_progress), `uq_user_program` (user_programs)
 - Downgrade drops in reverse dependency order
 
@@ -74,6 +77,7 @@ Hand-written, idempotent migration covering all 15 tables:
 - PostgreSQL 16 service container
 - Installs backend deps, runs `alembic upgrade head`
 - Env vars: `DATABASE_URL=postgresql+asyncpg://test:test@localhost:5432/testdb?ssl=disable`, `JWT_SECRET=test-secret-for-ci`
+- No `DB_SCHEMA` env var needed in CI — it is hardcoded as a module constant in `database.py`
 
 #### 4b. New `.github/workflows/migrate.yml`
 
