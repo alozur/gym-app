@@ -4,18 +4,34 @@ on:
   push:
     branches: [main, dev]
   workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - prod
 
 jobs:
   ci:
     uses: ./.github/workflows/ci.yml
 
+  migrate:
+    needs: ci
+    uses: ./.github/workflows/migrate.yml
+    with:
+      environment: ${{ inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}
+    secrets: inherit
+
   deploy:
     name: Deploy to Synology
-    needs: ci
+    needs: [ci, migrate]
     runs-on: [self-hosted, synology]
-    environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+    environment: ${{ inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}
     env:
-      ENV: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+      ENV: ${{ inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}
       APP_PORT: ${{ github.ref == 'refs/heads/main' && '3080' || '3084' }}
       SUBNET: ${{ github.ref == 'refs/heads/main' && '172.27.0.0/16' || '172.22.0.0/16' }}
       GATEWAY: ${{ github.ref == 'refs/heads/main' && '172.27.0.1' || '172.22.0.1' }}

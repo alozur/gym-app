@@ -24,6 +24,7 @@ services:
       - backend
     networks:
       - gym-net
+      - traefik-net
 
 networks:
   gym-net:
@@ -33,4 +34,6 @@ networks:
         - subnet: ${SUBNET:-172.27.0.0/16}
           gateway: ${GATEWAY:-172.27.0.1}
   postgres_infra_network:
+    external: true
+  traefik-net:
     external: true

@@ -1,0 +1,52 @@
+name: Migrate
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - prod
+
+jobs:
+  migrate:
+    name: Run Database Migrations
+    runs-on: [self-hosted, synology]
+    environment: ${{ inputs.environment }}
+    env:
+      ENV: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+          cat <<EOF > .env
+          DATABASE_URL=postgresql+asyncpg://${{ vars.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@postgres_shared:5432/${{ vars.POSTGRES_DB }}?ssl=disable
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          CORS_ORIGINS=${{ vars.CORS_ORIGINS }}
+          EOF
+
+      - name: Build backend image
+        run: docker build -t gym-backend-migrate ./backend
+
+      - name: Run alembic upgrade head
+        run: |
+          docker run --rm \
+            --env-file .env \
+            --network postgres_infra_network \
+            gym-backend-migrate \
+            alembic upgrade head
+
+      - name: Cleanup .env
+        if: always()
+        run: rm -f .env

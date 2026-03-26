@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.database import Base, async_session, engine, settings
+from app.database import async_session, settings
 from app.routes.auth import router as auth_router
 from app.routes.exercises import router as exercises_router
 from app.routes.programs import router as programs_router
@@ -21,9 +21,6 @@ from app.seed_minimalift_5day import seed_minimalift_5day_program
 async def lifespan(app: FastAPI):
     try:
         print("[LIFESPAN] Connecting to DB")
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-            print("[LIFESPAN] Tables created")
         async with async_session() as db:
             await seed_exercises(db)
             print("[LIFESPAN] Exercises seeded")

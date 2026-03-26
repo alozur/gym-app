@@ -1,12 +1,13 @@
 import asyncio
 from logging.config import fileConfig
 
-from sqlalchemy import pool
+from sqlalchemy import pool, text
+from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
-from app.database import Base, settings
+from app.database import Base, DB_SCHEMA, settings
 from app.models import (  # noqa: F401 - ensure all models are registered
     Exercise,
     ExerciseProgress,
@@ -30,9 +31,10 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
-
 target_metadata = Base.metadata
+
+# Override sqlalchemy.url from app settings (use the property with fallback logic)
+config.set_main_option("sqlalchemy.url", settings.database_url)
 
 
 def run_migrations_offline() -> None:
@@ -43,24 +45,26 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_schemas=True,
+        version_table_schema=DB_SCHEMA,
     )
-
     with context.begin_transaction():
         context.run_migrations()
 
 
-def do_run_migrations(connection) -> None:
+def do_run_migrations(connection: Connection) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
+        include_schemas=True,
+        version_table_schema=DB_SCHEMA,
     )
-
     with context.begin_transaction():
         context.run_migrations()
 
 
 async def run_async_migrations() -> None:
-    """Run migrations in 'online' mode using an async engine."""
+    """Create an async engine, ensure schema exists, then run migrations."""
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
@@ -68,6 +72,11 @@ async def run_async_migrations() -> None:
     )
 
     async with connectable.connect() as connection:
+        # Create schema before migrations (requires commit before migration transaction)
+        await connection.execute(
+            text(f"CREATE SCHEMA IF NOT EXISTS {DB_SCHEMA}")
+        )
+        await connection.commit()
         await connection.run_sync(do_run_migrations)
 
     await connectable.dispose()
