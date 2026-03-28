@@ -25,8 +25,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.gym.rule=Host(`gym.${DOMAIN:-zurera.cloud}`)"
-      - "traefik.http.routers.gym.entrypoints=websecure"
-      - "traefik.http.routers.gym.tls.certresolver=cloudflare"
+      - "traefik.http.routers.gym.entrypoints=web"
       - "traefik.http.routers.gym.middlewares=authelia@docker"
       - "traefik.http.services.gym.loadbalancer.server.port=80"
     networks:
