@@ -24,10 +24,10 @@ services:
       - backend
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.gym.rule=Host(`gym.${DOMAIN:-zurera.cloud}`)"
-      - "traefik.http.routers.gym.entrypoints=web"
-      - "traefik.http.routers.gym.middlewares=authelia@docker"
-      - "traefik.http.services.gym.loadbalancer.server.port=80"
+      - "traefik.http.routers.gym-${ENV:-prod}.rule=Host(`gym.${DOMAIN:-zurera.cloud}`)"
+      - "traefik.http.routers.gym-${ENV:-prod}.entrypoints=web"
+      - "traefik.http.routers.gym-${ENV:-prod}.middlewares=authelia@docker"
+      - "traefik.http.services.gym-${ENV:-prod}.loadbalancer.server.port=80"
     networks:
       - gym-net
       - traefik-net
