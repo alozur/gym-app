@@ -6,45 +6,32 @@ import {
   type ReactNode,
 } from "react";
 import type { UserResponse } from "@/types";
-import { api, getAccessToken, getRefreshToken } from "@/api/client";
+import { api } from "@/api/client";
 
 interface AuthState {
   user: UserResponse | null;
-  accessToken: string | null;
-  refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
 }
 
 type AuthAction =
-  | {
-      type: "LOGIN_SUCCESS";
-      payload: {
-        user: UserResponse;
-        accessToken: string;
-        refreshToken: string;
-      };
-    }
+  | { type: "AUTH_SUCCESS"; payload: UserResponse }
   | { type: "LOGOUT" }
   | { type: "SET_LOADING"; payload: boolean }
   | { type: "SET_USER"; payload: UserResponse };
 
 const initialState: AuthState = {
   user: null,
-  accessToken: null,
-  refreshToken: null,
   isAuthenticated: false,
   isLoading: true,
 };
 
 function authReducer(state: AuthState, action: AuthAction): AuthState {
   switch (action.type) {
-    case "LOGIN_SUCCESS":
+    case "AUTH_SUCCESS":
       return {
         ...state,
-        user: action.payload.user,
-        accessToken: action.payload.accessToken,
-        refreshToken: action.payload.refreshToken,
+        user: action.payload,
         isAuthenticated: true,
         isLoading: false,
       };
@@ -81,34 +68,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
   useEffect(() => {
-    const accessToken = getAccessToken();
-    const refreshToken = getRefreshToken();
-
-    if (!accessToken || !refreshToken) {
-      dispatch({ type: "SET_LOADING", payload: false });
-      return;
-    }
-
     api
       .get<UserResponse>("/auth/me")
       .then((user) => {
-        dispatch({
-          type: "LOGIN_SUCCESS",
-          payload: { user, accessToken, refreshToken },
-        });
+        dispatch({ type: "AUTH_SUCCESS", payload: user });
       })
       .catch(() => {
-        dispatch({ type: "LOGOUT" });
+        // If /me fails, Authelia will handle the redirect on next navigation
+        dispatch({ type: "SET_LOADING", payload: false });
       });
-  }, []);
-
-  useEffect(() => {
-    function handleLogout() {
-      dispatch({ type: "LOGOUT" });
-    }
-
-    window.addEventListener("auth:logout", handleLogout);
-    return () => window.removeEventListener("auth:logout", handleLogout);
   }, []);
 
   return (

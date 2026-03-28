@@ -1,15 +1,11 @@
 from collections.abc import AsyncGenerator
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import verify_token
-from app.database import async_session
+from app.database import async_session, settings
 from app.models import User
-
-bearer_scheme = HTTPBearer(auto_error=False)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -23,32 +19,31 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Extract and verify the JWT Bearer token, returning the authenticated User."""
-    if credentials is None:
+    """Read Authelia forward-auth headers and return the authenticated User.
+
+    If the user doesn't exist in the database yet, auto-provision them.
+    """
+    email = request.headers.get("Remote-Email") or settings.DEV_USER_EMAIL
+    if not email:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
-            headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user_id = verify_token(credentials.credentials, expected_type="access")
-    if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired access token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
+
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-            headers={"WWW-Authenticate": "Bearer"},
+        display_name = request.headers.get("Remote-Name", email.split("@")[0])
+        user = User(
+            email=email,
+            display_name=display_name,
         )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
 
     return user

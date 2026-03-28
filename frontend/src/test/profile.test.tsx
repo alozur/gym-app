@@ -21,7 +21,6 @@ Object.defineProperty(window, "matchMedia", {
 const mockLogout = vi.fn().mockResolvedValue(undefined);
 const mockSyncNow = vi.fn().mockResolvedValue(undefined);
 const mockDispatch = vi.fn();
-const mockNavigate = vi.fn();
 
 vi.mock("@/api/client", () => ({
   api: {
@@ -30,15 +29,12 @@ vi.mock("@/api/client", () => ({
     put: vi.fn(),
     delete: vi.fn(),
   },
-  getAccessToken: vi.fn(() => "test-token"),
-  getRefreshToken: vi.fn(() => "test-refresh"),
-  setTokens: vi.fn(),
-  clearTokens: vi.fn(),
-  ApiError: class extends Error {
+  ApiError: class ApiError extends Error {
     status: number;
-    constructor(status: number, msg: string) {
-      super(msg);
+    constructor(status: number, message: string) {
+      super(message);
       this.status = status;
+      this.name = "ApiError";
     }
   },
 }));
@@ -46,11 +42,9 @@ vi.mock("@/api/client", () => ({
 vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => ({
     logout: mockLogout,
-    login: vi.fn(),
-    register: vi.fn(),
-    refreshToken: vi.fn(),
+    user: null,
+    isAuthenticated: true,
     isLoading: false,
-    error: null,
   }),
 }));
 
@@ -74,8 +68,6 @@ vi.mock("@/context/AuthContext", () => ({
         preferred_unit: "kg",
         created_at: "2024-01-15T00:00:00Z",
       },
-      accessToken: "token",
-      refreshToken: "refresh",
       isAuthenticated: true,
       isLoading: false,
     },
@@ -95,14 +87,6 @@ vi.mock("@/db/index", () => ({
 vi.mock("@/components/DataExport", () => ({
   default: () => <button>Export Data</button>,
 }));
-
-vi.mock("react-router-dom", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("react-router-dom")>();
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate,
-  };
-});
 
 import Profile from "@/pages/Profile";
 
@@ -126,7 +110,7 @@ describe("Profile", () => {
     expect(screen.getByDisplayValue("Test User")).toBeInTheDocument();
   });
 
-  it("logout button calls logout and navigates to /login", async () => {
+  it("logout button calls logout", async () => {
     const user = userEvent.setup();
     renderProfile();
 
@@ -135,9 +119,6 @@ describe("Profile", () => {
 
     await waitFor(() => {
       expect(mockLogout).toHaveBeenCalled();
-    });
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith("/login");
     });
   });
 

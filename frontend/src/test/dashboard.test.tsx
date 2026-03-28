@@ -11,10 +11,14 @@ vi.mock("@/api/client", () => ({
     put: vi.fn(),
     delete: vi.fn(),
   },
-  getAccessToken: vi.fn(() => null),
-  getRefreshToken: vi.fn(() => null),
-  setTokens: vi.fn(),
-  clearTokens: vi.fn(),
+  ApiError: class ApiError extends Error {
+    status: number;
+    constructor(status: number, message: string) {
+      super(message);
+      this.status = status;
+      this.name = "ApiError";
+    }
+  },
 }));
 
 vi.mock("@/db/index", async () => {
@@ -37,8 +41,6 @@ vi.mock("@/context/AuthContext", () => ({
         preferred_unit: "kg",
         created_at: "2024-01-01T00:00:00Z",
       },
-      accessToken: "token",
-      refreshToken: "refresh",
       isAuthenticated: true,
       isLoading: false,
     },

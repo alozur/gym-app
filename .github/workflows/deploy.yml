@@ -48,8 +48,8 @@ jobs:
           POSTGRES_USER=${{ vars.POSTGRES_USER }}
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_DB=${{ vars.POSTGRES_DB }}
-          JWT_SECRET=${{ secrets.JWT_SECRET }}
           CORS_ORIGINS=${{ vars.CORS_ORIGINS }}
+          DEV_USER_EMAIL=${{ env.ENV == 'dev' && 'alonsozurera@gmail.com' || '' }}
           EOF
 
       - name: Deploy with docker compose

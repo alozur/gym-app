@@ -24,7 +24,7 @@ class User(Base):
         String(36), primary_key=True, default=lambda: str(uuid.uuid4())
     )
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     display_name: Mapped[str] = mapped_column(String(100), nullable=False)
     preferred_unit: Mapped[str] = mapped_column(
         String(10), nullable=False, default="kg"

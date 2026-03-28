@@ -32,7 +32,6 @@ jobs:
         run: |
           cat <<EOF > .env
           DATABASE_URL=postgresql+asyncpg://${{ vars.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@postgres_shared:5432/${{ vars.POSTGRES_DB }}?ssl=disable
-          JWT_SECRET=${{ secrets.JWT_SECRET }}
           CORS_ORIGINS=${{ vars.CORS_ORIGINS }}
           EOF
 
