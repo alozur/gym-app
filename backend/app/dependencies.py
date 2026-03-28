@@ -4,7 +4,7 @@ from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import async_session
+from app.database import async_session, settings
 from app.models import User
 
 
@@ -26,7 +26,7 @@ async def get_current_user(
 
     If the user doesn't exist in the database yet, auto-provision them.
     """
-    email = request.headers.get("Remote-Email")
+    email = request.headers.get("Remote-Email") or settings.DEV_USER_EMAIL
     if not email:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
