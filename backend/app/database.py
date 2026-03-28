@@ -11,7 +11,6 @@ class Settings(BaseSettings):
     POSTGRES_DB: str | None = None
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
-    JWT_SECRET: str = "change-me"
     CORS_ORIGINS: str = "http://localhost:5173"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
