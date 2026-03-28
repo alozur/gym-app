@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { db, SYNC_STATUS } from "@/db/index.ts";
-import { api, getAccessToken } from "@/api/client.ts";
+import { api } from "@/api/client.ts";
 import type { SyncRequest, SyncResponse } from "@/types.ts";
 
 const SYNC_INTERVAL_MS = 30_000;
@@ -75,9 +75,6 @@ export function useSync(): UseSyncReturn {
   // ------------------------------------------------------------------
   const syncNow = useCallback(async () => {
     if (isSyncingRef.current || !navigator.onLine) return;
-
-    // Don't attempt sync without a valid auth token
-    if (!getAccessToken()) return;
 
     isSyncingRef.current = true;
     setIsSyncing(true);
