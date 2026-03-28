@@ -23,7 +23,7 @@ services:
     depends_on:
       - backend
     labels:
-      - "traefik.enable=true"
+      - "traefik.enable=${TRAEFIK_ENABLE:-true}"
       - "traefik.http.routers.gym-${ENV:-prod}.rule=Host(`gym.${DOMAIN:-zurera.cloud}`)"
       - "traefik.http.routers.gym-${ENV:-prod}.entrypoints=web"
       - "traefik.http.routers.gym-${ENV:-prod}.middlewares=authelia@docker"

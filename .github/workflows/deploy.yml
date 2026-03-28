@@ -50,6 +50,7 @@ jobs:
           POSTGRES_DB=${{ vars.POSTGRES_DB }}
           CORS_ORIGINS=${{ vars.CORS_ORIGINS }}
           DEV_USER_EMAIL=${{ env.ENV == 'dev' && 'alonsozurera@gmail.com' || '' }}
+          TRAEFIK_ENABLE=${{ env.ENV == 'prod' && 'true' || 'false' }}
           EOF
 
       - name: Deploy with docker compose
