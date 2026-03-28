@@ -12,11 +12,7 @@ vi.mock("@/api/client", () => ({
     put: vi.fn().mockResolvedValue({}),
     delete: vi.fn().mockResolvedValue({}),
   },
-  getAccessToken: vi.fn(() => null),
-  getRefreshToken: vi.fn(() => null),
-  setTokens: vi.fn(),
-  clearTokens: vi.fn(),
-  ApiError: class extends Error {
+  ApiError: class ApiError extends Error {
     status: number;
     constructor(status: number, message: string) {
       super(message);
@@ -48,9 +44,7 @@ vi.mock("@/context/AuthContext", () => ({
         preferred_unit: "kg",
         created_at: "2024-01-01T00:00:00Z",
       },
-      accessToken: "token",
-      refreshToken: "refresh",
-      isAuthenticated: false,
+      isAuthenticated: true,
       isLoading: false,
     },
     dispatch: vi.fn(),
