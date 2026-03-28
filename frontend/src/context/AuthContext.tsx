@@ -7,6 +7,7 @@ import {
 } from "react";
 import type { UserResponse } from "@/types";
 import { api } from "@/api/client";
+import { hydrateFromApi } from "@/db/hydrate";
 
 interface AuthState {
   user: UserResponse | null;
@@ -72,6 +73,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       .get<UserResponse>("/auth/me")
       .then((user) => {
         dispatch({ type: "AUTH_SUCCESS", payload: user });
+        void hydrateFromApi(user.id);
       })
       .catch(() => {
         // If /me fails, Authelia will handle the redirect on next navigation
