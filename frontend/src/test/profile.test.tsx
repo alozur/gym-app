@@ -88,7 +88,6 @@ vi.mock("@/components/DataExport", () => ({
   default: () => <button>Export Data</button>,
 }));
 
-
 import Profile from "@/pages/Profile";
 
 beforeEach(() => {
