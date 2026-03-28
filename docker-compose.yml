@@ -5,8 +5,7 @@ services:
     restart: unless-stopped
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_shared:5432/${POSTGRES_DB}?ssl=disable
-      - JWT_SECRET=${JWT_SECRET}
-      - CORS_ORIGINS=${CORS_ORIGINS:-https://gym.alonsozurera.synology.me,http://localhost:3080}
+      - CORS_ORIGINS=${CORS_ORIGINS:-https://gym.zurera.cloud,http://localhost:3080}
     networks:
       - gym-net
       - postgres_infra_network
@@ -22,6 +21,13 @@ services:
       - "${APP_PORT:-3080}:80"
     depends_on:
       - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gym.rule=Host(`gym.${DOMAIN:-zurera.cloud}`)"
+      - "traefik.http.routers.gym.entrypoints=websecure"
+      - "traefik.http.routers.gym.tls.certresolver=cloudflare"
+      - "traefik.http.routers.gym.middlewares=authelia@docker"
+      - "traefik.http.services.gym.loadbalancer.server.port=80"
     networks:
       - gym-net
       - traefik-net
