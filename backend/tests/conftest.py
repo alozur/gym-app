@@ -23,6 +23,13 @@ TestSessionLocal = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
 )
 
+AUTHELIA_HEADERS = {
+    "Remote-User": "testuser",
+    "Remote-Email": "test@example.com",
+    "Remote-Name": "Test User",
+    "Remote-Groups": "users",
+}
+
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -66,17 +73,13 @@ async def seeded_client(client: AsyncClient, db_session: AsyncSession) -> AsyncC
 
 @pytest_asyncio.fixture
 async def auth_client(client: AsyncClient) -> AsyncClient:
-    """Client that is registered and logged in."""
-    register_data = {
-        "email": "test@example.com",
-        "password": "testpassword123",
-        "display_name": "Test User",
-    }
-    response = await client.post("/api/auth/register", json=register_data)
-    assert response.status_code == 201
-    tokens = response.json()
+    """Client authenticated via Authelia headers."""
+    # Auto-provision the user by hitting /me with headers
+    response = await client.get("/api/auth/me", headers=AUTHELIA_HEADERS)
+    assert response.status_code == 200
 
-    client.headers["Authorization"] = f"Bearer {tokens['access_token']}"
+    # Set headers for all subsequent requests
+    client.headers.update(AUTHELIA_HEADERS)
     return client
 
 

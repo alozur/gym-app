@@ -1,23 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import (
-    create_access_token,
-    create_refresh_token,
-    hash_password,
-    verify_password,
-    verify_token,
-)
 from app.dependencies import get_current_user, get_db
 from app.models import User
-from app.seed import enroll_user_in_defaults
 from app.schemas import (
-    LoginRequest,
     MessageResponse,
-    RefreshRequest,
-    RegisterRequest,
-    TokenResponse,
     UserResponse,
     UserUpdateRequest,
 )
@@ -25,81 +12,21 @@ from app.schemas import (
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=TokenResponse, status_code=201)
-async def register(
-    body: RegisterRequest,
-    db: AsyncSession = Depends(get_db),
-) -> TokenResponse:
-    """Register a new user and return access/refresh tokens."""
-    result = await db.execute(select(User).where(User.email == body.email))
-    if result.scalar_one_or_none() is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="A user with this email already exists",
-        )
-
-    user = User(
-        email=body.email,
-        password_hash=hash_password(body.password),
-        display_name=body.display_name,
-    )
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
-
-    await enroll_user_in_defaults(db, user.id)
-    await db.commit()
-
-    return TokenResponse(
-        access_token=create_access_token(user.id),
-        refresh_token=create_refresh_token(user.id),
+@router.post("/login", status_code=410)
+async def login_gone() -> MessageResponse:
+    """Login is handled by Authelia. This endpoint is kept for backwards compat."""
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail="Login is now handled by Authelia at https://auth.zurera.cloud",
     )
 
 
-@router.post("/login", response_model=TokenResponse)
-async def login(
-    body: LoginRequest,
-    db: AsyncSession = Depends(get_db),
-) -> TokenResponse:
-    """Authenticate a user and return access/refresh tokens."""
-    result = await db.execute(select(User).where(User.email == body.email))
-    user = result.scalar_one_or_none()
-
-    if user is None or not verify_password(body.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
-        )
-
-    return TokenResponse(
-        access_token=create_access_token(user.id),
-        refresh_token=create_refresh_token(user.id),
-    )
-
-
-@router.post("/refresh", response_model=TokenResponse)
-async def refresh(
-    body: RefreshRequest,
-    db: AsyncSession = Depends(get_db),
-) -> TokenResponse:
-    """Issue a new access token using a valid refresh token."""
-    user_id = verify_token(body.refresh_token, expected_type="refresh")
-    if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired refresh token",
-        )
-
-    result = await db.execute(select(User).where(User.id == user_id))
-    if result.scalar_one_or_none() is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-        )
-
-    return TokenResponse(
-        access_token=create_access_token(user_id),
-        refresh_token=create_refresh_token(user_id),
+@router.post("/register", status_code=410)
+async def register_gone() -> MessageResponse:
+    """Registration is handled by Authelia."""
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail="Registration is now handled by Authelia at https://auth.zurera.cloud",
     )
 
 
@@ -132,5 +59,5 @@ async def update_me(
 
 @router.post("/logout", response_model=MessageResponse)
 async def logout() -> MessageResponse:
-    """Log out the current user (client should discard tokens)."""
+    """Log out — actual session handled by Authelia."""
     return MessageResponse(message="Successfully logged out")

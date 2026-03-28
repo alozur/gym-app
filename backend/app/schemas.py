@@ -3,37 +3,12 @@ from decimal import Decimal
 
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 # ---------------------------------------------------------------------------
 # Auth schemas
 # ---------------------------------------------------------------------------
-
-
-class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str = Field(..., min_length=8)
-    display_name: str = Field(..., min_length=1, max_length=100)
-
-    model_config = {"str_strip_whitespace": True}
-
-
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
-
-    model_config = {"str_strip_whitespace": True}
-
-
-class TokenResponse(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
-
-
-class RefreshRequest(BaseModel):
-    refresh_token: str
 
 
 class UserResponse(BaseModel):

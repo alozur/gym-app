@@ -1,4 +1,3 @@
-import { Navigate } from "react-router-dom";
 import { useAuthContext } from "@/context/AuthContext";
 import type { ReactNode } from "react";
 
@@ -17,8 +16,11 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
+  // Authelia handles the redirect if not authenticated.
+  // If we get here without a user, reload to trigger Authelia.
   if (!state.isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    window.location.reload();
+    return null;
   }
 
   return <>{children}</>;

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthContext } from "@/context/AuthContext";
 import { useSync } from "@/hooks/useSync";
@@ -17,8 +16,6 @@ export default function Profile() {
   const { state, dispatch } = useAuthContext();
   const { isOnline, pendingCount, isSyncing, lastSyncError, syncNow } =
     useSync();
-  const navigate = useNavigate();
-
   const { isDark, toggle: toggleDark } = useDarkMode();
   const user = state.user;
 
@@ -56,7 +53,6 @@ export default function Profile() {
 
   async function handleLogout() {
     await logout();
-    navigate("/login");
   }
 
   if (!user) return null;
