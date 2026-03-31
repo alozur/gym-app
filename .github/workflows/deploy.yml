@@ -40,18 +40,18 @@ jobs:
 
       - name: Create .env file
         run: |
-          cat <<EOF > .env
-          ENV=${ENV}
-          APP_PORT=${APP_PORT}
-          SUBNET=${SUBNET}
-          GATEWAY=${GATEWAY}
-          POSTGRES_USER=${{ vars.POSTGRES_USER }}
-          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_DB=${{ vars.POSTGRES_DB }}
-          CORS_ORIGINS=${{ vars.CORS_ORIGINS }}
-          DEV_USER_EMAIL=${{ env.ENV == 'dev' && 'alonsozurera@gmail.com' || '' }}
-          TRAEFIK_ENABLE=${{ env.ENV == 'prod' && 'true' || 'false' }}
-          EOF
+          {
+            echo "ENV=${ENV}"
+            echo "APP_PORT=${APP_PORT}"
+            echo "SUBNET=${SUBNET}"
+            echo "GATEWAY=${GATEWAY}"
+            echo "POSTGRES_USER=${{ vars.POSTGRES_USER }}"
+            echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}"
+            echo "POSTGRES_DB=${{ vars.POSTGRES_DB }}"
+            echo "CORS_ORIGINS=${{ vars.CORS_ORIGINS }}"
+            echo "DEV_USER_EMAIL=${{ env.ENV == 'dev' && 'alonsozurera@gmail.com' || '' }}"
+            echo "TRAEFIK_ENABLE=${{ env.ENV == 'prod' && 'true' || 'false' }}"
+          } > .env
 
       - name: Deploy with docker compose
         run: |
