@@ -3,6 +3,12 @@ services:
     build: ./backend
     container_name: gym-backend-${ENV:-prod}
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_shared:5432/${POSTGRES_DB}?ssl=disable
       - CORS_ORIGINS=${CORS_ORIGINS:-https://gym.zurera.cloud,http://localhost:3080}
@@ -21,9 +27,15 @@ services:
     ports:
       - "${APP_PORT:-3080}:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     labels:
       - "traefik.enable=${TRAEFIK_ENABLE:-true}"
+      # Public router — PWA files and health check bypass Authelia
+      - "traefik.http.routers.gym-${ENV:-prod}-public.rule=Host(`gym.${DOMAIN:-zurera.cloud}`) && (Path(`/manifest.webmanifest`) || Path(`/sw.js`) || Path(`/registerSW.js`) || PathPrefix(`/workbox-`) || Path(`/health`))"
+      - "traefik.http.routers.gym-${ENV:-prod}-public.entrypoints=web"
+      - "traefik.http.routers.gym-${ENV:-prod}-public.priority=10"
+      # Main router — all other paths require Authelia auth
       - "traefik.http.routers.gym-${ENV:-prod}.rule=Host(`gym.${DOMAIN:-zurera.cloud}`)"
       - "traefik.http.routers.gym-${ENV:-prod}.entrypoints=web"
       - "traefik.http.routers.gym-${ENV:-prod}.middlewares=authelia@docker"
