@@ -34,9 +34,10 @@ services:
       # Public router — PWA files and health check bypass Authelia
       - "traefik.http.routers.gym-${ENV:-prod}-public.rule=Host(`gym.${DOMAIN:-zurera.cloud}`) && (Path(`/manifest.webmanifest`) || Path(`/sw.js`) || Path(`/registerSW.js`) || PathPrefix(`/workbox-`) || Path(`/health`))"
       - "traefik.http.routers.gym-${ENV:-prod}-public.entrypoints=web"
-      - "traefik.http.routers.gym-${ENV:-prod}-public.priority=10"
+      - "traefik.http.routers.gym-${ENV:-prod}-public.priority=100"
       # Main router — all other paths require Authelia auth
       - "traefik.http.routers.gym-${ENV:-prod}.rule=Host(`gym.${DOMAIN:-zurera.cloud}`)"
+      - "traefik.http.routers.gym-${ENV:-prod}.priority=1"
       - "traefik.http.routers.gym-${ENV:-prod}.entrypoints=web"
       - "traefik.http.routers.gym-${ENV:-prod}.middlewares=authelia@docker"
       - "traefik.http.services.gym-${ENV:-prod}.loadbalancer.server.port=80"
