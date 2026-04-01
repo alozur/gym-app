@@ -725,3 +725,165 @@ async def test_list_phases(auth_seeded_client: AsyncClient, db_session):
     assert "sections" in workout
     assert len(workout["sections"]) == 1
     assert len(workout["sections"][0]["exercises"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# Dynamic daysPerWeek: parametrize over 2 and 5 days per week
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("days_per_week", [2, 5])
+async def test_advance_phased_dynamic_days_per_week_increment(
+    auth_seeded_client: AsyncClient, db_session, days_per_week: int
+):
+    me_resp = await auth_seeded_client.get("/api/auth/me")
+    assert me_resp.status_code == 200
+    user_id = me_resp.json()["id"]
+
+    exercise_id = await _get_exercise_id_by_name(
+        auth_seeded_client, "Barbell Bench Press"
+    )
+    program_id, _phase_ids, _workout_ids = await _create_phased_program_in_db(
+        db_session,
+        user_id=user_id,
+        program_name=f"Dynamic {days_per_week}d Test",
+        num_phases=1,
+        days_per_week=days_per_week,
+        duration_weeks=3,
+        exercise_id=exercise_id,
+    )
+
+    activate_resp = await auth_seeded_client.post(
+        f"/api/programs/{program_id}/activate"
+    )
+    assert activate_resp.status_code == 200
+    assert activate_resp.json()["current_day_index"] == 0
+
+    # Advance once — day should go from 0 to 1 (no wrap regardless of days_per_week)
+    advance_resp = await auth_seeded_client.post(
+        f"/api/programs/{program_id}/advance-phased"
+    )
+    assert advance_resp.status_code == 200
+    data = advance_resp.json()
+    assert data["current_day_index"] == 1
+    assert data["current_week_in_phase"] == 0
+    assert data["current_phase_index"] == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("days_per_week", [2, 5])
+async def test_advance_phased_dynamic_days_per_week_wrap(
+    auth_seeded_client: AsyncClient, db_session, days_per_week: int
+):
+    me_resp = await auth_seeded_client.get("/api/auth/me")
+    assert me_resp.status_code == 200
+    user_id = me_resp.json()["id"]
+
+    exercise_id = await _get_exercise_id_by_name(auth_seeded_client, "Barbell RDL")
+    program_id, _phase_ids, _workout_ids = await _create_phased_program_in_db(
+        db_session,
+        user_id=user_id,
+        program_name=f"Dynamic wrap {days_per_week}d Test",
+        num_phases=1,
+        days_per_week=days_per_week,
+        duration_weeks=3,
+        exercise_id=exercise_id,
+    )
+
+    activate_resp = await auth_seeded_client.post(
+        f"/api/programs/{program_id}/activate"
+    )
+    assert activate_resp.status_code == 200
+    enrollment_id = activate_resp.json()["id"]
+
+    from sqlalchemy import update as sa_update
+
+    from app.models import UserProgram
+
+    # Place enrollment at the last day of the first week
+    last_day = days_per_week - 1
+    await db_session.execute(
+        sa_update(UserProgram)
+        .where(UserProgram.id == enrollment_id)
+        .values(current_day_index=last_day, current_week_in_phase=0)
+    )
+    await db_session.commit()
+
+    # Advance — day must wrap to 0 and week must increment to 1
+    advance_resp = await auth_seeded_client.post(
+        f"/api/programs/{program_id}/advance-phased"
+    )
+    assert advance_resp.status_code == 200
+    data = advance_resp.json()
+    assert data["current_day_index"] == 0
+    assert data["current_week_in_phase"] == 1
+    assert data["current_phase_index"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Full cycle: all phases complete → started_at resets
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_advance_phased_full_cycle_resets_started_at(
+    auth_seeded_client: AsyncClient, db_session
+):
+    me_resp = await auth_seeded_client.get("/api/auth/me")
+    assert me_resp.status_code == 200
+    user_id = me_resp.json()["id"]
+
+    exercise_id = await _get_exercise_id_by_name(
+        auth_seeded_client, "Smith Machine Squat"
+    )
+    # 2 phases, 1 week each, 3 days per week
+    program_id, _phase_ids, _workout_ids = await _create_phased_program_in_db(
+        db_session,
+        user_id=user_id,
+        program_name="Full Cycle Test",
+        num_phases=2,
+        days_per_week=3,
+        duration_weeks=1,
+        exercise_id=exercise_id,
+    )
+
+    activate_resp = await auth_seeded_client.post(
+        f"/api/programs/{program_id}/activate"
+    )
+    assert activate_resp.status_code == 200
+    enrollment_id = activate_resp.json()["id"]
+    original_started_at = activate_resp.json()["started_at"]
+
+    from sqlalchemy import update as sa_update
+
+    from app.models import UserProgram
+
+    # Set enrollment to last day of last week of last phase:
+    # current_day_index=2, current_week_in_phase=0 (duration=1, so last is 0),
+    # current_phase_index=1 (last of 2 phases)
+    await db_session.execute(
+        sa_update(UserProgram)
+        .where(UserProgram.id == enrollment_id)
+        .values(
+            current_day_index=2,
+            current_week_in_phase=0,
+            current_phase_index=1,
+        )
+    )
+    await db_session.commit()
+
+    advance_resp = await auth_seeded_client.post(
+        f"/api/programs/{program_id}/advance-phased"
+    )
+    assert advance_resp.status_code == 200
+    data = advance_resp.json()
+
+    # All counters wrap back to the beginning
+    assert data["current_day_index"] == 0
+    assert data["current_week_in_phase"] == 0
+    assert data["current_phase_index"] == 0
+
+    # started_at must have been reset (not equal to the original value)
+    assert data["started_at"] is not None
+    assert data["started_at"] != original_started_at

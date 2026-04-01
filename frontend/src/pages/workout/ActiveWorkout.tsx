@@ -968,13 +968,22 @@ export function ActiveWorkout({
             .toArray();
           phases.sort((a, b) => a.order - b.order);
 
-          const daysPerWeek = 3;
           const currentPhase =
             phases[enrollment.current_phase_index % phases.length];
+
+          const phaseWorkoutDays = currentPhase
+            ? await db.phaseWorkouts
+                .where("phase_id")
+                .equals(currentPhase.id)
+                .toArray()
+            : [];
+          const daysPerWeek =
+            new Set(phaseWorkoutDays.map((w) => w.day_index)).size || 1;
 
           let newDay = enrollment.current_day_index + 1;
           let newWeek = enrollment.current_week_in_phase;
           let newPhase = enrollment.current_phase_index;
+          let newStartedAt = enrollment.started_at;
 
           if (newDay >= daysPerWeek) {
             newDay = 0;
@@ -983,7 +992,8 @@ export function ActiveWorkout({
               newWeek = 0;
               newPhase += 1;
               if (newPhase >= phases.length) {
-                newPhase = 0; // Loop
+                newPhase = 0;
+                newStartedAt = finishedAt;
               }
             }
           }
@@ -992,6 +1002,7 @@ export function ActiveWorkout({
             current_day_index: newDay,
             current_week_in_phase: newWeek,
             current_phase_index: newPhase,
+            started_at: newStartedAt,
             last_workout_at: finishedAt,
             sync_status: SYNC_STATUS.pending,
           });

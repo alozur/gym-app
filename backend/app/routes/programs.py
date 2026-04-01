@@ -214,9 +214,16 @@ async def _get_phased_today(
     phase_idx = user_program.current_phase_index % len(program.phases)
     current_phase = program.phases[phase_idx]
 
+    days_result = await db.execute(
+        select(PhaseWorkout.day_index)
+        .where(PhaseWorkout.phase_id == current_phase.id)
+        .distinct()
+    )
+    days_per_week = len(days_result.scalars().all()) or 1
+
     # week_number is 1-indexed in PhaseWorkout
     week_num = (user_program.current_week_in_phase % current_phase.duration_weeks) + 1
-    day_idx = user_program.current_day_index % 3  # 3 days per week
+    day_idx = user_program.current_day_index % days_per_week
 
     # Load workout with sections and exercises
     workout_result = await db.execute(
@@ -572,8 +579,14 @@ async def advance_phased_program(
             detail="Not a phased program or no phases",
         )
 
-    days_per_week = 3
     current_phase = program.phases[enrollment.current_phase_index % len(program.phases)]
+
+    days_result = await db.execute(
+        select(PhaseWorkout.day_index)
+        .where(PhaseWorkout.phase_id == current_phase.id)
+        .distinct()
+    )
+    days_per_week = len(days_result.scalars().all()) or 1
 
     new_day = enrollment.current_day_index + 1
     new_week = enrollment.current_week_in_phase
@@ -587,6 +600,7 @@ async def advance_phased_program(
             new_phase += 1
             if new_phase >= len(program.phases):
                 new_phase = 0
+                enrollment.started_at = datetime.utcnow()
 
     enrollment.current_day_index = new_day
     enrollment.current_week_in_phase = new_week

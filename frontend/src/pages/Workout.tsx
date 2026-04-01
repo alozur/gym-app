@@ -10,6 +10,14 @@ import {
 } from "@/db/index";
 import { useAuthContext } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { WorkoutSetup } from "./workout/WorkoutSetup";
 import { ActiveWorkout } from "./workout/ActiveWorkout";
 import { TodayScreen } from "./workout/TodayScreen";
@@ -56,6 +64,9 @@ export default function Workout() {
     useState<DbUserProgram | null>(null);
   const [checkingActive, setCheckingActive] = useState(true);
   const [showAdHoc, setShowAdHoc] = useState(false);
+  const [staleSession, setStaleSession] = useState<DbWorkoutSession | null>(null);
+  const [staleTemplateName, setStaleTemplateName] = useState<string | null>(null);
+  const [showStaleDialog, setShowStaleDialog] = useState(false);
 
   // Check for an active (unfinished) session and active program on mount
   useEffect(() => {
@@ -74,15 +85,28 @@ export default function Workout() {
           .first();
 
         if (active) {
-          setSession(active);
+          let resolvedName: string | null = null;
           if (active.template_id) {
             const template = await db.workoutTemplates.get(active.template_id);
-            setTemplateName(template?.name ?? null);
+            resolvedName = template?.name ?? null;
           } else if (active.phase_workout_id) {
             const phaseWorkout = await db.phaseWorkouts.get(
               active.phase_workout_id,
             );
-            setTemplateName(phaseWorkout?.name ?? null);
+            resolvedName = phaseWorkout?.name ?? null;
+          }
+
+          const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+          const startedAt = new Date(active.started_at).getTime();
+          const isStale = Date.now() - startedAt > TWO_HOURS_MS;
+
+          if (isStale) {
+            setStaleSession(active);
+            setStaleTemplateName(resolvedName);
+            setShowStaleDialog(true);
+          } else {
+            setSession(active);
+            setTemplateName(resolvedName);
           }
           setCheckingActive(false);
           return;
@@ -136,6 +160,23 @@ export default function Workout() {
     await db.workoutSessions.put(newSession);
     setSession(newSession);
     setTemplateName(name);
+  }
+
+  async function handleDiscardStale() {
+    if (!staleSession) return;
+    await db.workoutSets.where("session_id").equals(staleSession.id).delete();
+    await db.workoutSessions.delete(staleSession.id);
+    setStaleSession(null);
+    setStaleTemplateName(null);
+    setShowStaleDialog(false);
+  }
+
+  function handleResumeStale() {
+    setSession(staleSession);
+    setTemplateName(staleTemplateName);
+    setStaleSession(null);
+    setStaleTemplateName(null);
+    setShowStaleDialog(false);
   }
 
   function handleWorkoutFinished() {
@@ -271,9 +312,34 @@ export default function Workout() {
     );
   }
 
+  const staleStartedAt = staleSession
+    ? new Date(staleSession.started_at).toLocaleString([], {
+        dateStyle: "medium",
+        timeStyle: "short",
+      })
+    : null;
+
   return (
     <div className="min-h-screen bg-background text-foreground pb-28">
       <main className="mx-auto max-w-md px-4 py-8">{content}</main>
+      <Dialog open={showStaleDialog} onOpenChange={() => {}}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Unfinished workout</DialogTitle>
+            <DialogDescription>
+              You have an unfinished workout
+              {staleTemplateName ? ` (${staleTemplateName})` : ""} from{" "}
+              {staleStartedAt}. Would you like to resume or discard it?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2">
+            <Button variant="destructive" onClick={() => void handleDiscardStale()}>
+              Discard
+            </Button>
+            <Button onClick={handleResumeStale}>Resume</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
