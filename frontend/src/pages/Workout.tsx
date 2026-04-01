@@ -64,8 +64,12 @@ export default function Workout() {
     useState<DbUserProgram | null>(null);
   const [checkingActive, setCheckingActive] = useState(true);
   const [showAdHoc, setShowAdHoc] = useState(false);
-  const [staleSession, setStaleSession] = useState<DbWorkoutSession | null>(null);
-  const [staleTemplateName, setStaleTemplateName] = useState<string | null>(null);
+  const [staleSession, setStaleSession] = useState<DbWorkoutSession | null>(
+    null,
+  );
+  const [staleTemplateName, setStaleTemplateName] = useState<string | null>(
+    null,
+  );
   const [showStaleDialog, setShowStaleDialog] = useState(false);
 
   // Check for an active (unfinished) session and active program on mount
@@ -333,7 +337,10 @@ export default function Workout() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex gap-2">
-            <Button variant="destructive" onClick={() => void handleDiscardStale()}>
+            <Button
+              variant="destructive"
+              onClick={() => void handleDiscardStale()}
+            >
               Discard
             </Button>
             <Button onClick={handleResumeStale}>Resume</Button>

@@ -69,7 +69,9 @@ const NOW = new Date("2024-06-01T12:00:00.000Z").getTime();
 const staleStartedAt = new Date(NOW - TWO_HOURS_MS - 1000).toISOString();
 const recentStartedAt = new Date(NOW - 30 * 60 * 1000).toISOString();
 
-function makeSession(overrides: Partial<DbWorkoutSession> = {}): DbWorkoutSession {
+function makeSession(
+  overrides: Partial<DbWorkoutSession> = {},
+): DbWorkoutSession {
   return {
     id: "sess-1",
     user_id: "u1",
@@ -181,8 +183,12 @@ describe("Recent session auto-resume", () => {
       expect(screen.queryByText("Unfinished workout")).not.toBeInTheDocument();
     });
 
-    expect(screen.queryByRole("button", { name: "Resume" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Discard" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Resume" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Discard" }),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -215,7 +221,10 @@ describe("handleDiscardStale", () => {
   });
 
   it("only deletes sets belonging to the stale session", async () => {
-    const staleSession = makeSession({ id: "sess-stale", started_at: staleStartedAt });
+    const staleSession = makeSession({
+      id: "sess-stale",
+      started_at: staleStartedAt,
+    });
     const otherSession = makeSession({
       id: "sess-other",
       started_at: staleStartedAt,
